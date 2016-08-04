@@ -6,7 +6,7 @@
     [nyse.components.datomic     :refer [->Datomic]]
     [nyse.components.dynamo      :refer [->Dynamo]]
 
-    ;; [nyse.components.event-queue :refer [->EventQueue]]
+    [nyse.components.event-queue :refer [->EventQueue]]
 
     ;; Webserver
     [nyse.components.immutant    :refer [->Immutant]]
@@ -29,7 +29,7 @@
     :datomic     (->Datomic (:datomic conf) nil) ;; conf, + conn
     :dynamo      (->Dynamo  (:dynamo  conf) nil) ;; conf, + creds
 
-    ;; :event-queue (->EventQueue (:event-queue conf) nil) ;; conf, + events-server
+    :event-queue (->EventQueue (:event-queue conf) nil) ;; conf, + events-server
 
     ;; Webserver
     :immutant   (->Immutant (:immutant conf) nil nil)  ;; -> conf, handler, + server

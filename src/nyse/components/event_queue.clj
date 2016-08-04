@@ -110,7 +110,7 @@
 #_(start-client :c4)
 
 ;; Client is done sending messages to browser and ready to request messages/samples that have meanwhile arrived in the queue/event-server.
-(<>! :c4 :next)
+#_(<>! :c4 :next)
 
 ;; Server will then reply at one point and send a vec of events
 (<>! :c3 [:deliver-new [{:index 14} {:index 15}]])
