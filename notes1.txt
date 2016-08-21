@@ -1,4 +1,17 @@
 
+
+make a boot setup!
+  use refresh task
+make parallel figwheel setup
+
+----------------------------------------------------------------------------------
+
+vim:
+change around string/eelement:
+(identity @(kvlt/request!
+             {:url "http://localhost:5000/echo"}))
+
+
 vim format list of entity maps (vector already works!)
 align with cljfmt
 
@@ -44,6 +57,21 @@ A clojureScript client!
 
 Pulsar: write tests for spawn :name, register
 make pull-request
+
+;;
+----------------------------------------------------------------------------------
+github: MANIFOLD!
+(let [a (future 1)]
+  (let-flow [b (future (+ a 1))
+             c (+ b 1)]
+    (+ c 1))) --- change d
+
+promesa: is (= ,,) -- Klammer fehlt
+spelling "cancelled"
+.timeout fuer clj mit delay hinzufuegen
+
+;;
+----------------------------------------------------------------------------------
 
 
 

@@ -1,0 +1,17 @@
+{:datomic {:uri "datomic:mem://mount"
+           :schema-path "resources/datomic-schema.edn"}
+
+ :dynamo {:local-creds {:region     "localhost"
+                        :endpoint   "http://localhost:8000"
+                        :access-key "accessk"
+                        :secret-key "seck"}
+          :table-specs [{:name :orders
+                         :spec-path "resources/dynamo-table-spec-orders.edn"}]}
+
+ :event-queue {:max-size 7
+               :file-path "app-data/event-queue-data.edn"}
+
+ :immutant {:port 4242}
+ :aleph    {:port 5050}
+
+ }

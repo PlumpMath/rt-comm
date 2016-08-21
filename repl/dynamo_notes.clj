@@ -54,7 +54,7 @@
 
 (hc/list-tables!! (-> dev/system :dynamo :creds))
 
-(hc/get-item!! creds :orders {:symbol "appl"})
+(hc/get-item!! creds :orders {:symbol "TAA"})
 
 ;;
 ;; [:curriesi :orders :orders2 :orders3 :orders4 :ordersh4]
@@ -316,9 +316,28 @@
 ;; (hc/list-tables!! creds {:limit 20})
 ;;
 ;; (hc/scan!! creds :curries {:limit 20})
+
 (hc/scan!! creds :orders {:limit 20})
+({:offer 88N,  :symbol "goog", :id 40838N, :bid 44N, :qty 23N}
+ {:offer 88N,  :symbol "goog", :id 40807N, :bid 44N, :qty 23N}
+ {:offer 33N,  :symbol "TAA", :id 40684N, :bid 22N, :qty 44N}
+ {:offer 33N,  :symbol "goog", :id 40334N, :bid 234N, :qty 44N}
+ {:offer 88N,  :symbol "goog", :id 40768N, :bid 44N, :qty 23N}
+ {:offer 33N,  :symbol "TAA", :id 40333N, :bid 22N, :qty 44N}
+ {:offer 88N,  :symbol "goog", :id 40815N, :bid 44N, :qty 23N}
+ {:offer 88N,  :symbol "goog", :id 40846N, :bid 44N, :qty 23N}
+ {:offer 33N,  :symbol "TAA", :id 40812N, :bid 22N, :qty 44N}
+ {:offer 321N, :symbol "TAA", :id 40685N, :bid 123N, :qty 5422N}
+ {:offer 88N,  :symbol "goog", :id 40870N, :bid 44N, :qty 23N})
 ;; ==>
 ({:offer 234N, :symbol "eins2", :bid 44N, :qty 6N})
+
+(assoc {} :dynamo (hc/query!! creds :orders {:symbol [:= "TAA"]} 
+                           {:sort :asc 
+                            :index :symbol
+                            :limit 10
+                            }))
+
 
 ;; ;; ==>
 ;; ({:name        "eins",

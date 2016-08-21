@@ -12,7 +12,7 @@
                  [com.taoensso/timbre "4.3.1"]
                  [json-html "0.3.9"]
                  [hiccup "1.0.5"] 
-                 [io.aviso/pretty "0.1.20"]
+                 [io.aviso/pretty "0.1.20"] ;; is this really working?
 
                  [funcool/catacumba "0.17.0"]
                  [org.immutant/immutant "2.1.3"]

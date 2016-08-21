@@ -132,7 +132,7 @@
       {:index 5, :time 353, :location [18 40]}
       {:index 6, :time 361, :location [21 36]}])
 
-
+;; The server keeps clients as state only for the duration of their request-reply.
 (def server-actor 
   "Collects events (things that have happened in the system) in a buffer and provides
   them to clients via request-reply."

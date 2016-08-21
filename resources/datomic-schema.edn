@@ -1,0 +1,30 @@
+[{:db/id                 #db/id [:db.part/db]
+  :db/ident              :order/symbol ;; symbol??
+
+  :db/valueType          :db.type/string
+  :db/cardinality        :db.cardinality/one
+  ;; :db/unique             :db.unique/identity
+  :db/index              true
+  :db.install/_attribute :db.part/db}
+
+ {:db/id                 #db/id [:db.part/db]
+  :db/ident              :order/bid ;; bid
+
+  :db/valueType          :db.type/bigdec
+  :db/cardinality        :db.cardinality/one
+  ;; :db/unique             :db.unique/identity
+  :db.install/_attribute :db.part/db}
+
+ {:db/id                 #db/id [:db.part/db]
+  :db/ident              :order/qty ;; quantity
+
+  :db/valueType          :db.type/long
+  :db/cardinality        :db.cardinality/one
+  :db.install/_attribute :db.part/db}
+
+ {:db/id                 #db/id [:db.part/db]
+  :db/ident              :order/offer ;; offer
+
+  :db/valueType          :db.type/bigdec
+  :db/cardinality        :db.cardinality/one
+  :db.install/_attribute :db.part/db}]

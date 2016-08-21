@@ -1,0 +1,18 @@
+{:table      :orders
+ :throughput {:read 1 :write 1}
+
+ :attrs      {:id     :number
+              :symbol :string
+              :offer  :number
+              ;; :bid    :number
+              ;; :qty    :number
+              }
+
+ :keys       [:id]
+
+ :indexes {:global
+           [{:name :symbol
+             :keys [:symbol :offer]
+             :project [:all]
+             :throughput {:read 1 :write 1}}]}
+ }
