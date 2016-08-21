@@ -1,9 +1,9 @@
 (require 
   '[dev :refer [system db-conns reset]]
-  '[nyse.api :refer [add-order! find-orders find-all-orders]]
-  '[nyse.utils.datomic :as dtc-util]
-  '[nyse.utils.dynamo  :as dyo-util]
-  '[nyse.utils.logging :as logging]
+  '[rt-comm.api :refer [add-order! find-orders find-all-orders]]
+  '[rt-comm.utils.datomic :as dtc-util]
+  '[rt-comm.utils.dynamo  :as dyo-util]
+  '[rt-comm.utils.logging :as logging]
 
   '[taoensso.timbre :refer [debug info error spy]]
   '[datomic.api :as d]

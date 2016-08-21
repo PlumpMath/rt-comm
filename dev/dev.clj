@@ -14,10 +14,10 @@
     [com.stuartsierra.component :as component]
     [datomic.api :as d]
 
-    [nyse.utils.utils :as utils]
-    [nyse.components.system :refer [new-dev-system]]
-    [nyse.api :as api]
-    [nyse.utils.datomic :refer [touch]]
+    [rt-comm.utils.utils :as utils]
+    [rt-comm.components.system :refer [new-dev-system]]
+    [rt-comm.api :as api]
+    [rt-comm.utils.datomic :refer [touch]]
 
 ))
 

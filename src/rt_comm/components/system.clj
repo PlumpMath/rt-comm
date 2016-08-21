@@ -1,24 +1,24 @@
-(ns nyse.components.system
+(ns rt-comm.components.system
   (:require
     [com.stuartsierra.component :as component]
 
     ;; DBs
-    [nyse.components.datomic     :refer [->Datomic]]
-    [nyse.components.dynamo      :refer [->Dynamo]]
+    [rt-comm.components.datomic     :refer [->Datomic]]
+    [rt-comm.components.dynamo      :refer [->Dynamo]]
 
-    [nyse.components.event-queue :refer [->EventQueue]]
+    [rt-comm.components.event-queue :refer [->EventQueue]]
 
     ;; Webserver
-    [nyse.components.immutant    :refer [->Immutant]]
-    ;; [nyse.components.aleph      :refer [->Aleph]]
+    [rt-comm.components.immutant    :refer [->Immutant]]
+    ;; [rt-comm.components.aleph      :refer [->Aleph]]
 
     ;; Routes/ Handler
-    [nyse.components.handler     :refer [->Handler]]
+    [rt-comm.components.handler     :refer [->Handler]]
 
     ;; Websocket connections
-    [nyse.components.websockets  :refer [->Ws-Handler]]
-    ;; [nyse.components.websockets-immutant :refer [->Ws-Handler-Immutant]]
-    ;; [nyse.components.websockets-aleph    :refer [->Ws-Handler-Aleph]]
+    [rt-comm.components.websockets  :refer [->Ws-Handler]]
+    ;; [rt-comm.components.websockets-immutant :refer [->Ws-Handler-Immutant]]
+    ;; [rt-comm.components.websockets-aleph    :refer [->Ws-Handler-Aleph]]
 
 ))
 

@@ -1,10 +1,10 @@
-(ns nyse.components.datomic 
+(ns rt-comm.components.datomic 
   (:require [com.stuartsierra.component :as component]
 
             [datomic.api     :as d]
             [taoensso.timbre :as timbre :refer [log debug info spy]]
 
-            [nyse.utils.datomic :as utils]
+            [rt-comm.utils.datomic :as utils]
 
             ))
 

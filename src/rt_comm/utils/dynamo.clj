@@ -1,4 +1,4 @@
-(ns nyse.utils.dynamo
+(ns rt-comm.utils.dynamo
   (:require
     [hildebrand.core :as hc]
     [hildebrand.channeled :as hch]

@@ -1,4 +1,4 @@
-(ns nyse.utils.datomic
+(ns rt-comm.utils.datomic
   (:require [datomic.api :as d]
             ;; [dev :require [system]]
             ))

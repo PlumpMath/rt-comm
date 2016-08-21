@@ -1,4 +1,4 @@
-(ns nyse.utils.utils
+(ns rt-comm.utils.utils
   (:require [clojure.edn :as edn]
             ))
 

@@ -1,4 +1,7 @@
-(defproject nyse "0.1.0"
+(defproject rt-comm "0.1.0"
+  :description "Explore clojure stack for real-time communication"
+  :license {:name "MIT"}
+
   :dependencies [[org.clojure/clojure "1.8.0"]
 
                  [com.stuartsierra/component "0.3.1"]
@@ -12,9 +15,8 @@
                  [com.taoensso/timbre "4.3.1"]
                  [json-html "0.3.9"]
                  [hiccup "1.0.5"] 
-                 [io.aviso/pretty "0.1.20"] ;; is this really working?
+                 [io.aviso/pretty "0.1.20"] ;; REPL formatting - is this really working?
 
-                 [funcool/catacumba "0.17.0"]
                  [org.immutant/immutant "2.1.3"]
                  [compojure "1.5.0"]
                  [ring/ring-defaults "0.2.0"]

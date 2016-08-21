@@ -1,9 +1,9 @@
-(ns nyse.components.dynamo 
+(ns rt-comm.components.dynamo 
   (:require [com.stuartsierra.component :as component]
             [hildebrand.core :as hc]
             [hildebrand.channeled :as hch]
 
-            [nyse.utils.dynamo :as utils]
+            [rt-comm.utils.dynamo :as utils]
 
             ))
 

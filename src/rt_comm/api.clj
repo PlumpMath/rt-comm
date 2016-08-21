@@ -1,9 +1,9 @@
-(ns nyse.api
+(ns rt-comm.api
   (:require [datomic.api :as d]
             [hildebrand.core :as hc]
             [taoensso.timbre :refer [debug info error spy]]
-            [nyse.utils.datomic :as dtc-util]
-            [nyse.utils.dynamo :as dyo-util]
+            [rt-comm.utils.datomic :as dtc-util]
+            [rt-comm.utils.dynamo :as dyo-util]
             ))
 
 ;; (dev/reset)

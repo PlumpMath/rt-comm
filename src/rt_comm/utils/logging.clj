@@ -1,4 +1,4 @@
-(ns nyse.utils.logging
+(ns rt-comm.utils.logging
   (:require [clojure.java.io :as io] 
             [taoensso.timbre :as timbre]
             [taoensso.timbre.appenders.core :as appenders]

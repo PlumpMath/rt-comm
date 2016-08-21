@@ -1,9 +1,9 @@
-(ns nyse.components.immutant 
+(ns rt-comm.components.immutant 
   (:require [com.stuartsierra.component :as component]
             [taoensso.timbre :as timbre :refer [log debug info spy]]
             [immutant.web :refer [run stop]]
 
-            [nyse.utils.datomic :as utils]
+            [rt-comm.utils.datomic :as utils]
 
             ))
 

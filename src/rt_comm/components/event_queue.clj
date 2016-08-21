@@ -1,10 +1,10 @@
-(ns nyse.components.event-queue
+(ns rt-comm.components.event-queue
   (:refer-clojure :exclude [promise await])
   (:require
     [com.stuartsierra.component :as component]
     [taoensso.timbre :refer [debug info error spy] :rename {debug <<<}]
 
-    [nyse.utils.utils :as utils :refer [valp fpred recent-items]]
+    [rt-comm.utils.utils :as utils :refer [valp fpred recent-items]]
 
     [co.paralleluniverse.pulsar.core :refer [sfn defsfn snd join spawn-fiber sleep]]
     [co.paralleluniverse.pulsar.async :as pa]
