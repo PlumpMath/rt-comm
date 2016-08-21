@@ -80,7 +80,7 @@
                    )))))
 ;; -------------------------------------------------------------------------------
 
-
+;; this will become the websocket client
 (def ca 
   (sfn client-actor [ev-server]
        (loop [cur-idx 0]
@@ -110,7 +110,7 @@
 #_(start-client :c4)
 
 ;; Client is done sending messages to browser and ready to request messages/samples that have meanwhile arrived in the queue/event-server.
-#_(<>! :c4 :next)
+#_(<>! :c3 :next)
 
 ;; Server will then reply at one point and send a vec of events
 (<>! :c3 [:deliver-new [{:index 14} {:index 15}]])
@@ -122,7 +122,7 @@
         )
 
 ;; Mimic a producer - append new messages
-(<>! :events-server [:append! [{:time 836, :location [14 43]}
+#_(<>! :events-server [:append! [{:time 836, :location [14 43]}
                                {:time 853, :location [18 44]}
                                {:time 861, :location [24 46]}]])
 
@@ -132,10 +132,11 @@
       {:index 5, :time 353, :location [18 40]}
       {:index 6, :time 361, :location [21 36]}])
 
-;; The server keeps clients as state only for the duration of their request-reply.
 (def server-actor 
   "Collects events (things that have happened in the system) in a buffer and provides
-  them to clients via request-reply."
+  them to clients via request-reply.
+  The server keeps clients as state only for the duration of their request-reply.
+  Clients must implement the :deliver-new variant/route."
   (sfn event-server-actor [init-events max-size]
        (loop [pend-reqs [] ;; pending clients 
               queue     (valp init-events vector? [])]
