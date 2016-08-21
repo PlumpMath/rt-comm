@@ -126,12 +126,6 @@
                                {:time 853, :location [18 44]}
                                {:time 861, :location [24 46]}]])
 
-(map (fn [el] (dissoc el :index))
-     [{:index 3, :time 336, :location [12 33]}
-      {:index 4, :time 350, :location [16 43]}
-      {:index 5, :time 353, :location [18 40]}
-      {:index 6, :time 361, :location [21 36]}])
-
 (def server-actor 
   "Collects events (things that have happened in the system) in a buffer and provides
   them to clients via request-reply.
