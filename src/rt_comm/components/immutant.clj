@@ -4,13 +4,14 @@
             [immutant.web :refer [run stop]]))
 
 
-(defrecord Immutant [conf handler1 server]
+(defrecord Immutant [conf handler server]
   component/Lifecycle
 
   (start [component]
-    (info "Starting Immutant on port: " (:port conf) handler1)
+    (info "Starting Immutant on port: " (:port conf))
+    (info "IMMUT handler!!" handler)
 
-    (->> (run (:handler handler1) :port (:port conf)) 
+    (->> (run (:handler handler) :port (:port conf)) 
          (assoc component :server)))
 
   (stop [component]

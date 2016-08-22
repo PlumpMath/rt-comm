@@ -36,8 +36,8 @@
     :aleph      (->Aleph    (:aleph    conf) nil nil)  ;; -> conf, handler, + server
 
     ;; Routes/ Handler
-    :handler-immutant (->Handler nil nil nil nil) ; datomic, dynamo, ws-handler, + handler
-    :handler-aleph    (->Handler nil nil nil nil) ; datomic, dynamo, ws-handler, + handler
+    :handler-immutant (->Handler nil nil nil #_nil) ; datomic, dynamo, ws-handler, + handler
+    :handler-aleph    (->Handler nil nil nil #_nil) ; datomic, dynamo, ws-handler, + handler
 
     ;; Websocket connections
     ;; :ws-handler (->Ws-Handler nil nil) ;; clients, + handler
@@ -58,12 +58,17 @@
    :ws-handler-immutant [:clients]
    ;; :ws-handler-aleph    [:clients]
 
-   ;; :handler1    [:datomic :dynamo :ws-handler]
-   :handler-immutant    [:datomic :dynamo :ws-handler-immutant]
-   ;; :handler2    [:datomic :dynamo :ws-handler-aleph]
+   :handler-immutant  {:datomic    :datomic
+                       :dynamo     :dynamo
+                       ;; :ws-handler :ws-handler-immutant
+                       }
 
-   :immutant    [:handler-immutant]
-   ;; :aleph       [:handler2]
+   :handler-aleph     {:datomic    :datomic
+                       :dynamo     :dynamo
+                       }
+
+   :immutant    {:handler :handler-immutant}
+   :aleph       {:handler :handler-aleph}
    })
 
 

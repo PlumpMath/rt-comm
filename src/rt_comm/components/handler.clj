@@ -6,6 +6,8 @@
 
     [taoensso.timbre :refer [debug info error spy]]
 
+    [ring.middleware.params :as params]
+
     ;; [ring.util.response :as util]
     ;; [ring.middleware.defaults :refer [site-defaults]]
     ;; [ring.middleware.format :refer [wrap-restful-format]]
@@ -16,21 +18,20 @@
 
     ))
 
-
-(defn- make-handler [db-conns ws-handler]
+(defn- make-handler [db-conns #_ws-handler]
 
   (composure/routes
 
-    (GET "/ws" request (ws-handler request))
+    ;; (GET "/ws" request (ws-handler request))
 
     (GET "/rtc/ab/:cc" [cc] (str {:ab 234 
                                   :cd [22 44]
                                   :we {:a 2 :bb cc}}))
 
     (GET "/rtc/orders/:ticker" [ticker]
-         (-> (update db-conns :datomic d/db) ;; db snapshot 
-             (api/find-orders ticker)
-             json/generate-string))
+           (-> (update db-conns :datomic d/db) ;; db snapshot 
+               (api/find-orders ticker)
+               json/generate-string))
 
     (GET "/rtc/orders" []
          (-> (update db-conns :datomic d/db) ;; db snapshot
@@ -50,13 +51,13 @@
             (json/generate-string {:added order})))))
 
 
-(defrecord Handler [datomic dynamo ws-handler handler]
+(defrecord Handler [datomic dynamo #_ws-handler handler]
   component/Lifecycle
 
   (start [component]
     (assoc component :handler (-> (make-handler {:datomic (:conn datomic)
                                                  :dynamo  (:creds dynamo)}
-                                                (:handler ws-handler)) 
+                                                #_(:handler ws-handler)) 
                                   (wrap-defaults api-defaults)))
     )
 
