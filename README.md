@@ -4,7 +4,7 @@ Playground app exploring a clojure stack for scalable real-time communication, f
 
 ### usage
 
-1. Start DynamoDB local. (e.g. `java -Djava.library.path=./DynamoDBLocal_lib -jar ..\DynamoDB\DynamoDBLocal.jar -sharedDb`). See `dev/resources/config.edn` for configuration. Also set up Datomic local.
+1. Start DynamoDB local. (e.g. `java -Djava.library.path=./DynamoDBLocal_lib -jar ..\DynamoDB\DynamoDBLocal.jar -sharedDb`). See `dev/resources/config.edn` for configuration. Datomic-free should work without further setup.
 2. `lein repl` in the cloned repo.
 3. Tail `log.txt` to view timbre logging.
 4. Run `(in-ns 'dev)` and then `(go)` to start the system. Use `(reset)` or `(refresh)` to reset the system/reload code.
