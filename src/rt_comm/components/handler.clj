@@ -18,14 +18,14 @@
 
 
 (defn- make-handler [db-conns ws-handler]
-  
+
   (composure/routes
 
     (GET "/ws" request (ws-handler request))
 
     (GET "/rtc/ab/:cc" [cc] (str {:ab 234 
-                                   :cd [22 44]
-                                   :we {:a 2 :bb cc}}))
+                                  :cd [22 44]
+                                  :we {:a 2 :bb cc}}))
 
     (GET "/rtc/orders/:ticker" [ticker]
          (-> (update db-conns :datomic d/db) ;; db snapshot 

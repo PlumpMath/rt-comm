@@ -1,11 +1,7 @@
 (ns rt-comm.components.immutant 
   (:require [com.stuartsierra.component :as component]
             [taoensso.timbre :as timbre :refer [log debug info spy]]
-            [immutant.web :refer [run stop]]
-
-            [rt-comm.utils.datomic :as utils]
-
-            ))
+            [immutant.web :refer [run stop]]))
 
 
 (defrecord Immutant [conf handler1 server]

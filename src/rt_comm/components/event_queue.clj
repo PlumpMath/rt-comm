@@ -113,10 +113,10 @@
 #_(<>! :c3 :next)
 
 ;; Server will then reply at one point and send a vec of events
-(<>! :c3 [:deliver-new [{:index 14} {:index 15}]])
+#_(<>! :c3 [:deliver-new [{:index 14} {:index 15}]])
 
 ;; Debug server state
-(some-> (whereis :events-server 20 :ms) 
+#_(some-> (whereis :events-server 20 :ms) 
         debug-state! 
         #_:cur-idx #_:pend-reqs #_:queue
         )

@@ -18,6 +18,7 @@
                  [io.aviso/pretty "0.1.20"] ;; REPL formatting
 
                  [org.immutant/immutant "2.1.3"]
+                 [aleph "0.4.1"]
                  [compojure "1.5.0"]
                  [ring/ring-defaults "0.2.0"]
 

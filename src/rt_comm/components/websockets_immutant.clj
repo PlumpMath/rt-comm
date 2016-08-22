@@ -1,4 +1,4 @@
-(ns rt-comm.components.websockets
+(ns rt-comm.components.websockets-immutant
   (:require [com.stuartsierra.component :as component] 
             [immutant.web.async :as async]
             [taoensso.timbre :refer [debug info error spy]]
@@ -40,7 +40,7 @@
        :on-message (partial notify-clients! clients)})))
 
 
-(defrecord Ws-Handler [clients handler]
+(defrecord Ws-Handler-Immutant [clients handler]
   component/Lifecycle
 
   (start [component]
