@@ -9,7 +9,7 @@ Playground app exploring a clojure stack for scalable real-time communication, f
 3. Tail `log.txt` to view timbre logging.
 4. Run `(in-ns 'dev)` and then `(go)` to start the system. Use `(reset)` or `(refresh)` to reset the system/reload code.
 5. You can try out the routes defined in `api.clj`. Note that operations are dublicated for Dynamo and Datomic.
-6. You can try out the `websockets.clj` component by connection two browser clients (e.g. use `http://www.websocket.org/echo.html` with `ws://localhost:4242/ws`). TODO: CLJS client.
+6. You can test the websocket components by connecting two browser clients (e.g. use `http://www.websocket.org/echo.html` with `ws://localhost:4040/ws` for Immutant and `ws://localhost:5050/ws`for Aleph). TODO: CLJS client.
 7. Test the event-queue by running the test code in `event-queue.clj`, e.g. `(<>! :c3 :next)`.
 
 
