@@ -1,22 +1,8 @@
-(ns rt-comm.components.websockets
+(ns rt-comm.components.websockets-immutant
   (:require [com.stuartsierra.component :as component] 
             [immutant.web.async :as async]
             [taoensso.timbre :refer [debug info error spy]]
             ))
-
-;; TEST:
-;; ws://localhost:4242/ws 
-;; (require '[dev :refer [system]])
-;; (def cls (-> system :ws-handler :clients))
-;;
-;; (doseq [client @cls]
-;;     (async/send! client (str "hi there!")))
-;;
-;; (-> @(-> system :ws-handler :clients)
-;;     vec
-;;     (get 1)
-;;     (async/send! "Tee")
-;;     )
 
 (defn connect! [clients req-client-ch]
   (info "channel open")
@@ -40,7 +26,7 @@
        :on-message (partial notify-clients! clients)})))
 
 
-(defrecord Ws-Handler [clients handler]
+(defrecord Ws-Handler-Immutant [clients handler]
   component/Lifecycle
 
   (start [component]
@@ -52,4 +38,17 @@
   (stop [component] component))
 
 
+;; TEST:
+;; ws://localhost:4242/ws 
+;; (require '[dev :refer [system]])
+;; (def cls (-> system :ws-handler :clients))
+;;
+;; (doseq [client @cls]
+;;     (async/send! client (str "hi there!")))
+;;
+;; (-> @(-> system :ws-handler :clients)
+;;     vec
+;;     (get 1)
+;;     (async/send! "Tee")
+;;     )
 

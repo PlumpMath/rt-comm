@@ -1,44 +1,15 @@
 
+make event-queue idempotent
+ -> envent-queue throwing errows on restart
 
 make a boot setup!
   use refresh task
 make parallel figwheel setup
 
+what creates the folder 'dev-resources'??
+
 ----------------------------------------------------------------------------------
 
-vim:
-change around string/eelement:
-(identity @(kvlt/request!
-             {:url "http://localhost:5000/echo"}))
-
-
-vim format list of entity maps (vector already works!)
-align with cljfmt
-
-vim: new line after expression
-(-> (some-fn 2 3))
-
-currently:
-(-> (some-fn 2 3) X)
-
-want this:
-(-> (some-fn 2 3)
-    X)
-
-vim: when nerd-tree is open, close the buffer on the right!
-
-vim: buffers groupen und ordern
-
-vim: when hitting (reset) - comment all lines that contain dev/system ..
-
-vim: c (change) last element in expression/line - no apace behind it!
-
-vim: <leader>u8 print works most of the time, but does not print
-below expression - and top expression?
-
-vim:  
-" TODO: There is a dot at the end. delete this and test with conemmu
-nmap <leader>7 :echo Getcwd()<cr>
 
 Task: Implement range filter in datomic and dynamo as variadic http parameters
     (GET "/nyse/orders" [ticker from to]
