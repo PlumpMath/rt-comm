@@ -1,4 +1,6 @@
 
+make event-queue idempotent
+ -> envent-queue throwing errows on restart
 
 make a boot setup!
   use refresh task

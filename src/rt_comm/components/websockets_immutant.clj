@@ -4,20 +4,6 @@
             [taoensso.timbre :refer [debug info error spy]]
             ))
 
-;; TEST:
-;; ws://localhost:4242/ws 
-;; (require '[dev :refer [system]])
-;; (def cls (-> system :ws-handler :clients))
-;;
-;; (doseq [client @cls]
-;;     (async/send! client (str "hi there!")))
-;;
-;; (-> @(-> system :ws-handler :clients)
-;;     vec
-;;     (get 1)
-;;     (async/send! "Tee")
-;;     )
-
 (defn connect! [clients req-client-ch]
   (info "channel open")
   (swap! clients conj req-client-ch))
@@ -52,4 +38,17 @@
   (stop [component] component))
 
 
+;; TEST:
+;; ws://localhost:4242/ws 
+;; (require '[dev :refer [system]])
+;; (def cls (-> system :ws-handler :clients))
+;;
+;; (doseq [client @cls]
+;;     (async/send! client (str "hi there!")))
+;;
+;; (-> @(-> system :ws-handler :clients)
+;;     vec
+;;     (get 1)
+;;     (async/send! "Tee")
+;;     )
 

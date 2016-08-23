@@ -9,7 +9,6 @@
 
   (start [component]
     (info "Starting Immutant on port: " (:port conf))
-    (info "IMMUT handler!!" handler)
 
     (->> (run (:handler handler) :port (:port conf)) 
          (assoc component :server)))
