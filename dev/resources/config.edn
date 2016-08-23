@@ -1,4 +1,4 @@
-{:datomic {:uri "datomic:mem://mount"
+{:datomic {:uri "datomic:mem://rt-comm"
            :schema-path "resources/datomic-schema.edn"}
 
  :dynamo {:local-creds {:region     "localhost"
@@ -11,7 +11,7 @@
  :event-queue {:max-size 7
                :file-path "app-data/event-queue-data.edn"}
 
- :immutant {:port 4242}
+ :immutant {:port 4040}
  :aleph    {:port 5050}
 
  }
