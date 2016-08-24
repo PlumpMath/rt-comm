@@ -9,7 +9,8 @@
 
 (defn connect! [connected-clients req-client-socket]
   (info "Add socket to connected-clients")
-  (swap! connected-clients conj req-client-socket))
+  (let [send-to-this-client-cb (partial s/put! req-client-socket)] 
+    (swap! connected-clients conj send-to-this-client-cb)))
 
 (defn disconnect! [connected-clients req-client-socket]
   (info "Remove socket from connected clients")
@@ -17,8 +18,8 @@
 
 (defn notify-clients! [connected-clients msg]
   (info "Broadcast message to all connected clients: " msg)
-  (doseq [client-socket @connected-clients]
-    (s/put! client-socket (str "From server: " msg))))
+  (doseq [client-cb @connected-clients]
+    (client-cb (str "From server: " msg))))
 
 
 (defn make-handler [connected-clients]

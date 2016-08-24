@@ -4,18 +4,19 @@
             [taoensso.timbre :refer [debug info error spy]]
             ))
 
-(defn connect! [clients req-client-ch]
-  (info "channel open")
-  (swap! clients conj req-client-ch))
+(defn connect! [connected-clients req-client-socket]
+  (info "Add socket to connected-clients")
+  (let [send-to-this-client-cb (partial async/send! req-client-socket)] 
+    (swap! connected-clients conj send-to-this-client-cb)))
 
-(defn disconnect! [clients req-client-ch {:keys [code reason]}]
-  (info "channel close code:" code "reason:" reason)
-  (swap! clients #(remove #{req-client-ch} %)))
+(defn disconnect! [connected-clients req-client-ch {:keys [code reason]}]
+  (info "Remove socket from connected clients" code "reason:" reason)
+  (swap! connected-clients #(remove #{req-client-ch} %)))
 
-(defn notify-clients! [clients req-client-ch msg]
-  (info "broadcast: " msg)
-  (doseq [client @clients]
-    (async/send! client (str "pp:" msg))))
+(defn notify-clients! [connected-clients req-client-socket msg]
+  (info "Broadcast message to all connected clients: " msg)
+  (doseq [client-cb @connected-clients]
+    (client-cb (str "From server: " msg))))
 
 (defn make-handler [clients]
   (fn [request]  ;; client requests a ws connection here
@@ -23,7 +24,7 @@
       request
       {:on-open    (partial connect! clients)
        :on-close   (partial disconnect! clients) 
-       :on-message (partial notify-clients! clients)})))
+       :on-message (partial notify-clients! clients)}))) ;; client messages don't come from the connection socket, but from this callback
 
 
 (defrecord Ws-Handler-Immutant [clients handler]
@@ -40,15 +41,27 @@
 
 ;; TEST:
 ;; ws://localhost:4242/ws 
+
 ;; (require '[dev :refer [system]])
 ;; (def cls (-> system :ws-handler :clients))
 ;;
 ;; (doseq [client @cls]
 ;;     (async/send! client (str "hi there!")))
 ;;
-;; (-> @(-> system :ws-handler :clients)
+;; (-> @(-> system :clients)
 ;;     vec
-;;     (get 1)
+;;     (get 0)
 ;;     (async/send! "Tee")
 ;;     )
+;;
+;; (def co @(-> system :clients))
+;;
+;; (def co1 (first co))
+;;
+;; (type co1)
+;;
+;; (def cf (partial async/send! co1))
+;;
+;; (cf "zwei")
+
 

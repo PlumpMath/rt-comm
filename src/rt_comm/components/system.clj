@@ -43,7 +43,8 @@
     :ws-handler-aleph    (->Ws-Handler-Aleph    nil nil) ;; clients, + handler
 
     :clients    (atom #{}) 
-    ;; keep this within ws-handler? - but it's shared between two ws-handlers!
+    ;; Callbacks that put to the ws-socket connections (eigther Immutant or Aleph)
+
 
     )
   )
