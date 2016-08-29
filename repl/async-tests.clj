@@ -90,17 +90,6 @@
 ;;     :else :no-match))
 
 
-(let [ac (spawn #(loop [] 
-                   (receive 
-                     [:aa bb] (do (info "out: " bb)
-                                  (recur))
-                     :else "not found")))
-      ]
-  (! ac [:aa 123])
-  (! ac [:aa 124])
-  (! ac [:ac 123])
-  (join ac))
-
 
 
 (fact "The spawn macro will evaluate arguments by value"
@@ -231,35 +220,6 @@
   (info [:append! events]))
 
 
-
-
-
-
-
-(def c (chan 1))
-
-(def sub-c (pub c :route))
-
-(def cx (chan 1))
-
-(sub sub-c :up-stream cx)
-
-(def cy (chan 1))
-
-(sub sub-c :down-stream cy)
-
-(go-loop [v (<! cx)]
-         (info "Got something coming up!" v))
-
-(go-loop [v (<! cy)]
-         (info "Got something going down!" v))
-
-(put! c {:route :up-stream 
-         :data 123})
-
-(put! c {:route :down-stream 
-         :data 123})
-
 #_(defn chat-handler
   [req]
   (d/let-flow [conn (d/catch
@@ -314,70 +274,6 @@
                (s/buffer 100))))))
 
 
-(append! {:time 123 :msg [:eins "wee"]})
-
-(def st (s/stream 4))
-(def stb (s/buffer 4 st))
-(s/close! st)
-(s/description st)
-
-(doseq [ms (map (partial str "Idx: ") (range 6))]
-  (s/put! st ms))
-
-(s/stream->seq st)
-
-(s/description stb)
-
-(def rd (s/put! st [1 8]))
-
-(def rrd (s/take! stb))
-(def rrd (s/take! st))
-
-(def cd (s/consume append! st)) ; o <--o
-
-(def d (d/deferred))
-
-(d/success! d 5)
-
-(s/connect )
-
-(Callback. )
-
-@d
-
-(defn prt [] (info "drained"))
-
-(def aa (->> [1 2 3]
-             s/->source
-             (s/map inc)
-             ;; (#(s/on-drained % prt))
-             ;; s/stream->seq
-             ))
-
-(s/on-drained aa prt)
-
-(def sa (s/stream->seq aa))
-
-(s/take! aa)
-
-(def uso (-> system :clients deref first))
-(-> (s/description uso) :source :buffer-size)
-
-have a ws-client-auth actor?
-- disconnect after timeout
-- into incoming and outgoing actors
-
-ws-client-incoming-actor: inti with userID, event-queue and socket source/take/read
-ws-client-outgoing-actor: inti with userID, event-queue and socket sink/put/write
-
-have two lists of actors - only for deggugging? - or for communication?
-
-- maintain userID and connection
-- read set-state-tag command
-- set state tags for following messages
-
-(s/take! uso)
-(s/put! uso "vier")
 
 
 ;; -------------------------------------------------------------------------------
@@ -394,43 +290,10 @@ have two lists of actors - only for deggugging? - or for communication?
              :after 30 :timeout)))
 
 
-(def ws-client-incoming-actor 
-  "ws-client-incoming-actor"
-  (sfn ws-client-incoming-actor [ev-queue]
-       (loop [aa 123]
-
-         (receive
-           [:append! new-events] (do
-                                   (println "eins")
-                                   (recur))
-
-           ))))
 
 
-(def au (spawn #(receive
-                  [:foo aa] (info aa)
-                  :else (println "got it!")
-                  :after 6000 "timed out!!")))
 
-(def mb (mailbox-of au))
-
-(let [user-socket     (s/stream)
-      auth-init-actor (spawn #(receive
-                                [:foo aa] (info aa)
-                                :else (println "got it!")
-                                :after 6000 "timed out!!")) 
-      ]
-
-  ;; (! auth-init-actor [:foo 12])
-
-  (s/consume #(! auth-init-actor %) user-socket)
-
-  (s/put! user-socket [:foo 23])
-
-  (join auth-init-actor))
-
-
-{:client-id "ab23" :room "green" :aa 12 :bb [1 2 3]}
+;; -------------------------------------------------------------------------------
 
 
 (def af (first @cls))
@@ -438,20 +301,6 @@ have two lists of actors - only for deggugging? - or for communication?
 
 (count @cls)
 (s/put! af "drei")
-
-(defn map
-  "Equivalent to Clojure's `map`, but for streams instead of sequences."
-  ([f s]
-    (let [s' (stream)]
-      (connect-via s
-        (fn [msg]
-          (put! s' (f msg)))
-        s'
-        {:description {:op "map"}})
-      (source-only s')))
-  ([f s & rest]
-    (map #(apply f %)
-      (apply zip s rest))))
 
 
 
@@ -517,57 +366,6 @@ true
 ;; comp: works backwards! <<-- .. right to left
 ((comp str inc) 0)
 
-(defn xcycle-v1 [rf]
-  (let [coll (volatile! [])]
-    (fn
-      ([] (rf))
-      ([result] (rf result))
-      ([result input]
-       (vswap! coll conj input)
-       (rf result input)))))
-
-(into [] xcycle-v1 [1 2 3])
-
-
-(def aa (s/stream))
-(def bb (s/stream))
-
-(def cc (s/splice aa bb))
-
-(s/put! cc :putted4)
-
-(s/put! aa :putted6)
-(s/put! bb :putted-b-6)
-
-(s/take! aa)
-(s/take! bb)
-
-(-> aa s/description :pending-puts)
-(-> bb s/description :sink :pending-puts)
-(-> cc s/description :sink :pending-puts)
-
-
-(info "eins")
-
-;;
-;; (s/put! s 6)
-;;
-;; (s/close! s)
-;;
-;; ;; it 
-;; @(s/take! s)
-;;
-;; (s/try-take! s :foo 2000 :timeout)
-;;
-;; (s/consume #(prn 'message! %) s)
-;;
-;; @(s/put! s 11)
-;;
-;; (->> [1 2 3]
-;;      s/->source
-;;      (s/map inc)
-;;      s/stream->seq)
-;;
 
 (def tee (s/periodically 1000 #(rand-int 16)))
 
