@@ -51,10 +51,24 @@
   ;; TODO
   )
 
-(defn <>! [id mes]
-  "Send message if actor found."
-  (some-> (whereis id 20 :ms) (! mes)))
 
+
+;; this will become the websocket client
+(def ca 
+  (sfn client-actor [ev-server]
+       (loop [cur-idx 0]
+         (receive
+           [:deliver-new events] (do (<<< "client:" (.getName @self) ":deliver-new" events)
+                                     (recur (spy (latest-index events))))
+
+           :next (do (! ev-server [:req-from-idx @self cur-idx])
+                     (recur cur-idx))
+
+           :shutdown! (<<< "shutting down client actor: " (.getName @self))
+
+           :else (do (<<< "Unsupported message to client!")
+                     (recur cur-idx))
+           ))))
 
 
 ;; -------------------------------------------------------------------------------
@@ -78,27 +92,13 @@
                    (sleep 10) ;; let the actor update the atom first. TODO: how to do this better?
                    @!debug-state ;; this fiber -and main thread?- will sleep, while actor fiber thread will update the atom
                    )))))
-;; -------------------------------------------------------------------------------
 
-;; this will become the websocket client
-(def ca 
-  (sfn client-actor [ev-server]
-       (loop [cur-idx 0]
-         (receive
-           [:deliver-new events] (do (<<< "client:" (.getName @self) ":deliver-new" events)
-                                     (recur (spy (latest-index events))))
-
-           :next (do (! ev-server [:req-from-idx @self cur-idx])
-                     (recur cur-idx))
-
-           :shutdown! (<<< "shutting down client actor: " (.getName @self))
-
-           :else (do (<<< "Unsupported message to client!")
-                     (recur cur-idx))
-           ))))
+(defn <>! [id mes]
+  "Send message if actor found."
+  (some-> (whereis id 20 :ms) (! mes)))
 
 
-(defn start-client [a-name]
+(defn start-client-debug [a-name]
   "Start test-client to event-server"
   (some-> (whereis a-name 10 :ms)  ;; cleanup
           (doto unregister! (!! :shutdown!)))
@@ -107,24 +107,45 @@
     (register! a-name (spawn ca ev-srv))
     (<<< "ev-server not found!")))
 
-#_(start-client :c4)
+
+;; -------------------------------------------------------------------------------
+
+
+
+
+#_(start-client-debug :c4)
 
 ;; Client is done sending messages to browser and ready to request messages/samples that have meanwhile arrived in the queue/event-server.
-#_(<>! :c3 :next)
+;; (<>! :c3 :next)
 
 ;; Server will then reply at one point and send a vec of events
 #_(<>! :c3 [:deliver-new [{:index 14} {:index 15}]])
 
 ;; Debug server state
-#_(some-> (whereis :events-server 20 :ms) 
+(some-> (whereis :events-server 20 :ms) 
         debug-state! 
-        #_:cur-idx #_:pend-reqs #_:queue
+        #_:cur-idx #_:pend-reqs :queue
         )
+;; ==>
+[{:index  5, :time 353, :location [18 40]}
+ {:index  6, :time 361, :location [21 36]}
+ {:client :abc, :message [:join-room :chat4], :index 7}
+ {:client :cde, :message [:post "This is my text"], :index 8}
+ {:time   836, :location [14 43], :index 9}
+ {:time   853, :location [18 44], :index 10}
+ {:time   861, :location [24 46], :index 11}]
 
 ;; Mimic a producer - append new messages
-#_(<>! :events-server [:append! [{:time 836, :location [14 43]}
+(<>! :events-server [:append! [{:client :abc :message [:join-room :chat4]} 
+                               {:client :cde :message [:post "This is my text"]}
+                               {:time 836, :location [14 43]}
                                {:time 853, :location [18 44]}
                                {:time 861, :location [24 46]}]])
+
+
+;; A message is simply a map. No keys are required at this point. 
+;; The :index key will be generated automatically. The only purpose of :index 
+;; is to maintain the overall number of events after restarts and for debugging (should see continious index-numbers)
 
 (def server-actor 
   "Collects events (things that have happened in the system) in a buffer and provides
@@ -180,7 +201,7 @@
     (let [event-data    (load-events (:file-path conf))
           server-actor' (spawn server-actor event-data (:max-size conf))
           _             (register! :events-server server-actor')
-          _             (start-client :c3)
+          _             (start-client-debug :c3)
           ]  ;; registering is only for debugging!
       (assoc component :events-server server-actor')))
 
@@ -193,6 +214,8 @@
 
 ;; -------------------------------------------------------------------------------
 
+#_(defn append! [events]
+  (! ev-server [:append! events]))
 
 
 

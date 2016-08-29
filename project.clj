@@ -5,7 +5,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
 
                  [com.stuartsierra/component "0.3.1"]
-                 ;; [mount "0.1.10"]
+                 [org.clojure/core.match "0.3.0-alpha4"]
 
                  [org.clojure/core.async "0.2.374"]
                  [co.paralleluniverse/quasar-core "0.7.5"]

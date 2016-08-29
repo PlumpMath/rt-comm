@@ -27,11 +27,11 @@
        :on-message (partial notify-clients! clients)}))) ;; client messages don't come from the connection socket, but from this callback
 
 
-(defrecord Ws-Handler-Immutant [clients handler]
+(defrecord Ws-Handler-Immutant [clients ws-handler]
   component/Lifecycle
 
   (start [component]
-    (assoc component :handler (make-handler clients)))
+    (assoc component :ws-handler (make-handler clients)))
   ;; the handler holds a reference to the state (an atom) in a closure
   ;; ws-handler therefore contains a stateful reference
   ;; ws-handler is passed into other components

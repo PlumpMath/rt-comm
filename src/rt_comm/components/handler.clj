@@ -57,7 +57,7 @@
   (start [component]
     (assoc component :handler (-> (make-handler {:datomic (:conn datomic)
                                                  :dynamo  (:creds dynamo)}
-                                                (:handler ws-handler)) 
+                                                (:ws-handler ws-handler)) 
                                   (wrap-defaults api-defaults)))
     )
 
