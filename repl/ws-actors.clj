@@ -26,7 +26,8 @@
 
 (def uso (-> system :clients deref first))
 (-> (s/description uso) :source :buffer-size)
-
+(s/put! uso "eins")
+(s/close! uso)
 have a ws-client-auth actor?
 - disconnect after timeout
 - into incoming and outgoing actors
@@ -57,6 +58,22 @@ have two lists of actors - only for deggugging? - or for communication?
   (join ac))
 
 
+(def users [{:user-id "pete" :pw "abc"} 
+            {:user-id "paul" :pw "cde"} 
+            {:user-id "mary" :pw "fgh"}])
+
+
+(defn registered-user? [login]
+  (-> (partial = login) (filter users) not-empty))
+
+
+(let [x {:cmd [:auth {:user-id "pete" :pw "abc"}]}]
+  (match [x]
+         [{:cmd [:auth login]}] (if (registered-user? login) 
+                                  (info "user: " (:user-id login)))
+
+         [{:c 3 :d _ :e 4}] :a2
+         :else nil))
 
 
 (def ws-client-incoming-actor 
@@ -71,11 +88,25 @@ have two lists of actors - only for deggugging? - or for communication?
 
            ))))
 
+(def auth-init-actor
+  "ws-client-incoming-actor"
+  (sfn auth-init-actor [ev-queue user-socket]
+       (receive
+         [{:cmd [:auth login]}] (if (registered-user? login) 
+                                  (info "user: " (:user-id login)))
+         :else (println "got it!")
+         :after 6000 "timed out!!")))
 
+
+
+{:client-id "ab23" :room "green" :aa 12 :bb [1 2 3]}
+
+{:cmd [:auth {:user-id "pete" :pw "abc"}]}
 
 (let [user-socket     (s/stream)
       auth-init-actor (spawn #(receive
-                                [:foo aa] (info aa)
+                                [{:cmd [:auth login]}] (if (registered-user? login) 
+                                                         (info "user: " (:user-id login)))
                                 :else (println "got it!")
                                 :after 6000 "timed out!!")) 
       ]
@@ -89,6 +120,5 @@ have two lists of actors - only for deggugging? - or for communication?
   (join auth-init-actor))
 
 
-{:client-id "ab23" :room "green" :aa 12 :bb [1 2 3]}
 
 

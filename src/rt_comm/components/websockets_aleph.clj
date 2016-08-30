@@ -8,7 +8,7 @@
 
 
 (defn connect! [connected-clients req-client-socket]
-  (info "Add socket to connected-clients")
+  (info "Add socket to connected-clients" connected-clients req-client-socket)
   (let [send-to-this-client-cb (partial s/put! req-client-socket)] 
     (swap! connected-clients conj req-client-socket))) ;; use CB here?
 
@@ -38,7 +38,7 @@
       (s/on-closed user-socket #(disconnect! connected-clients user-socket))
 
       ;; Receive messages from this user-socket-source
-      ;; (s/consume (partial notify-clients! connected-clients) user-socket)
+      (s/consume (partial notify-clients! connected-clients) user-socket)
       )))
 
 
