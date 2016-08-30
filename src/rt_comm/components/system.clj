@@ -16,8 +16,8 @@
     [rt-comm.components.handler     :refer [->Handler]]
 
     ;; Websocket connections
-    [rt-comm.components.websockets-immutant :refer [->Ws-Handler-Immutant]]
-    [rt-comm.components.websockets-aleph    :refer [->Ws-Handler-Aleph]]
+    [rt-comm.components.ws-handler-immutant-simple :refer [->Ws-Handler-Immutant-simple]]
+    [rt-comm.components.ws-handler-aleph-simple    :refer [->Ws-Handler-Aleph-simple]]
 
 ))
 
@@ -35,16 +35,17 @@
     :aleph      (->Aleph    (:aleph    conf) nil nil)  ;; -> conf, handler, + server
 
     ;; Routes/ Handler
-    :handler-immutant (->Handler nil nil nil nil) ; datomic, dynamo, ws-handler, + handler
-    :handler-aleph    (->Handler nil nil nil nil) ; datomic, dynamo, ws-handler, + handler
+    :handler-immutant (->Handler nil nil nil nil nil) ; datomic, dynamo, ws-handler-simple, ws-handler-main, + handler
+    :handler-aleph    (->Handler nil nil nil nil nil) ; datomic, dynamo, ws-handler-simple, ws-handler-main, + handler
 
     ;; Websocket connections
-    :ws-handler-immutant (->Ws-Handler-Immutant nil nil) ;; clients, + handler
-    :ws-handler-aleph    (->Ws-Handler-Aleph    nil nil) ;; clients, + handler
+    :ws-handler-immutant-simple (->Ws-Handler-Immutant-simple nil nil) ;; clients, + handler
+    :ws-handler-aleph-simple    (->Ws-Handler-Aleph-simple    nil nil) ;; clients, + handler
 
-    :clients    (atom #{}) 
+    :ws-clients-simple   (atom #{}) 
     ;; Callbacks that put to the ws-socket connections (eigther Immutant or Aleph)
 
+    :ws-clients-main     (atom [])
 
     )
   )
@@ -52,17 +53,19 @@
 
 (def dependancy-map
   {
-   :ws-handler-immutant [:clients]
-   :ws-handler-aleph    [:clients]
+   :ws-handler-immutant-simple {:ws-clients :ws-clients-simple}
+   :ws-handler-aleph-simple    {:ws-clients :ws-clients-simple} 
 
-   :handler-immutant  {:datomic    :datomic
-                       :dynamo     :dynamo
-                       :ws-handler :ws-handler-immutant
+   :handler-immutant  {:datomic           :datomic
+                       :dynamo            :dynamo
+                       :ws-handler-simple :ws-handler-immutant-simple
+                       :ws-handler-main   :ws-handler-immutant-simple
                        }
 
-   :handler-aleph     {:datomic    :datomic
-                       :dynamo     :dynamo
-                       :ws-handler :ws-handler-aleph
+   :handler-aleph     {:datomic           :datomic
+                       :dynamo            :dynamo
+                       :ws-handler-simple :ws-handler-aleph-simple
+                       :ws-handler-main   :ws-handler-aleph-simple
                        }
 
    :immutant    {:handler :handler-immutant}

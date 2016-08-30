@@ -24,7 +24,7 @@
                                      sliding-buffer]])
 
 
-(def uso (-> system :clients deref first))
+(def uso (-> system :ws-clients-simple #_deref #_first))
 (-> (s/description uso) :source :buffer-size)
 (s/put! uso "eins")
 (s/close! uso)
@@ -88,8 +88,14 @@ have two lists of actors - only for deggugging? - or for communication?
 
            ))))
 
+
+(defn init-ws-user []
+  ,,,)
+
+
 (def auth-init-actor
-  "ws-client-incoming-actor"
+  "Accepts an :auth :cmd message within timeout. Spins off incoming- and
+  outgoing actors or disconnects client accordingly."
   (sfn auth-init-actor [ev-queue user-socket]
        (receive
          [{:cmd [:auth login]}] (if (registered-user? login) 
@@ -97,6 +103,9 @@ have two lists of actors - only for deggugging? - or for communication?
          :else (println "got it!")
          :after 6000 "timed out!!")))
 
+ 
+(defn auth-ws-user []
+  ,,,)
 
 
 {:client-id "ab23" :room "green" :aa 12 :bb [1 2 3]}

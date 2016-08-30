@@ -1,4 +1,4 @@
-(ns rt-comm.components.websockets-aleph
+(ns rt-comm.components.ws-handler-aleph-simple
   (:require [com.stuartsierra.component :as component] 
             [aleph.http :as http]
             [manifold.stream :as s]
@@ -8,20 +8,19 @@
 
 
 (defn connect! [connected-clients req-client-socket]
-  (info "Add socket to connected-clients" connected-clients req-client-socket)
+  (info "Add socket to connected-clients" #_connected-clients #_req-client-socket)
   (let [send-to-this-client-cb (partial s/put! req-client-socket)] 
-    (swap! connected-clients conj req-client-socket))) ;; use CB here?
+    (swap! connected-clients conj {:socket req-client-socket :cb send-to-this-client-cb})))
 
 ;; TODO: how to remove the callback from the set??
 (defn disconnect! [connected-clients req-client-socket]
   (info "Remove socket from connected clients")
-  (swap! connected-clients #(remove #{req-client-socket} %)))
+  (swap! connected-clients #(remove (comp #{req-client-socket} :socket) %)))
 
 (defn notify-clients! [connected-clients msg]
   (info "Broadcast message to all connected clients: " msg)
-  (doseq [client-cb @connected-clients]
-    (s/put! client-cb (str "From server: " msg))))
-
+  (doseq [client @connected-clients]
+    ((:cb client) (str "From server: " msg))))
 
 
 (defn make-handler [connected-clients]
@@ -42,11 +41,11 @@
       )))
 
 
-(defrecord Ws-Handler-Aleph [clients ws-handler]
+(defrecord Ws-Handler-Aleph-simple [ws-clients ws-handler]
   component/Lifecycle
 
   (start [component]
-    (assoc component :ws-handler (make-handler clients)))
+    (assoc component :ws-handler (make-handler ws-clients)))
   ;; the handler holds a reference to the state (an atom) in a closure
   ;; ws-handler therefore contains a stateful reference
   ;; ws-handler is passed into other components

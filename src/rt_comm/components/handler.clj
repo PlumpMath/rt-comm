@@ -18,11 +18,13 @@
 
     ))
 
-(defn- make-handler [db-conns ws-handler]
+(defn- make-handler [db-conns ws-handler-simple ws-handler-main]
 
   (composure/routes
 
-    (GET "/ws" request (ws-handler request))
+    (GET "/ws-simple" request (ws-handler-simple request))
+
+    (GET "/ws-main" request (ws-handler-main request))
 
     (GET "/rtc/ab/:cc" [cc] (str {:ab 234 
                                   :cd [22 44]
@@ -51,13 +53,14 @@
             (json/generate-string {:added order})))))
 
 
-(defrecord Handler [datomic dynamo ws-handler handler]
+(defrecord Handler [datomic dynamo ws-handler-simple ws-handler-main handler]
   component/Lifecycle
 
   (start [component]
     (assoc component :handler (-> (make-handler {:datomic (:conn datomic)
                                                  :dynamo  (:creds dynamo)}
-                                                (:ws-handler ws-handler)) 
+                                                (:ws-handler ws-handler-simple)
+                                                (:ws-handler ws-handler-main)) 
                                   (wrap-defaults api-defaults)))
     )
 
