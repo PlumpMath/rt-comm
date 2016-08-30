@@ -7,66 +7,59 @@
             [taoensso.timbre :refer [debug info error spy]]))
 
 
-(defn connect! [connected-clients req-client-socket]
-  (info "Add socket to connected-clients" #_connected-clients #_req-client-socket)
+(defn connect! [ws-conns req-client-socket]
+  (info "Add socket to ws-conns" #_connected-clients #_req-client-socket)
   (let [send-to-this-client-cb (partial s/put! req-client-socket)] 
-    (swap! connected-clients conj {:socket req-client-socket :cb send-to-this-client-cb})))
+    (swap! ws-conns conj {:socket req-client-socket :cb send-to-this-client-cb})))
 
 ;; TODO: how to remove the callback from the set??
-(defn disconnect! [connected-clients req-client-socket]
+(defn disconnect! [ws-conns req-client-socket]
   (info "Remove socket from connected clients")
-  (swap! connected-clients #(remove (comp #{req-client-socket} :socket) %)))
+  (swap! ws-conns #(remove (comp #{req-client-socket} :socket) %)))
 
-(defn notify-clients! [connected-clients msg]
+(defn notify-clients! [ws-conns msg]
   (info "Broadcast message to all connected clients: " msg)
-  (doseq [client @connected-clients]
+  (doseq [client @ws-conns]
     ((:cb client) (str "From server: " msg))))
 
 
-(defn make-handler [connected-clients]
+(defn make-handler [ws-conns]
   "The returned handler will add and remove the user-socket-connection-stream object
-  to the enclosed connected-clients atom."
+  to the enclosed ws-conns atom."
   (fn [request]  ;; client requests a ws connection here
     ;; create connection to client - blocking!
     (let [user-socket @(http/websocket-connection request)]
 
       ;; Add
-      (connect! connected-clients user-socket)
+      (connect! ws-conns user-socket)
 
       ;; Remove
-      (s/on-closed user-socket #(disconnect! connected-clients user-socket))
+      (s/on-closed user-socket #(disconnect! ws-conns user-socket))
 
       ;; Receive messages from this user-socket-source
-      (s/consume (partial notify-clients! connected-clients) user-socket)
+      (s/consume (partial notify-clients! ws-conns) user-socket)
       )))
 
 
-(defrecord Ws-Handler-Aleph-simple [ws-clients ws-handler]
+(defrecord Ws-Handler-Aleph-simple [ws-conns ws-handler]
   component/Lifecycle
 
   (start [component]
-    (assoc component :ws-handler (make-handler ws-clients)))
-  ;; the handler holds a reference to the state (an atom) in a closure
-  ;; ws-handler therefore contains a stateful reference
-  ;; ws-handler is passed into other components
+    (assoc component :ws-handler (make-handler ws-conns)))
+  ;; ws-handler holds a reference to the ws-conn (an atom) in a closure
 
   (stop [component] component))
 
 
 ;; TEST:
-;; ws://localhost:5050/ws 
-;; (require '[dev :refer [system]])
-;; (def cls (-> system :ws-handler-aleph :clients))
-;;
-;; (doseq [client-socket @cls]
-;;     (s/put! client-socket "A message!!!"))
-;;
-;; (-> @(-> system :ws-handler-aleph :clients)
-;;     vec
-;;     (get 1)
-;;     (s/put! "Tee")
-;;     )
-
-
+;; ws://localhost:5050/ws-simple
+(comment 
+  (require '[dev :refer [system]])
+  (def user-conn (-> system :ws-conns-simple deref first))
+  ((:cb user-conn) "Hi from server!")
+  (s/put! (:socket user-conn) "Hi from server!")
+  (doseq [client @cls]
+    (s/put! client (str "hi there!")))
+  )
 
 

@@ -4,64 +4,46 @@
             [taoensso.timbre :refer [debug info error spy]]
             ))
 
-(defn connect! [connected-clients req-client-socket]
-  (info "Add socket to connected-clients" #_connected-clients #_req-client-socket) ;; TODO: validate args
+(defn connect! [ws-conns req-client-socket]
+  (info "Add socket to ws-conns" ws-conns req-client-socket) ;; TODO: validate args
   (let [send-to-this-client-cb (partial async/send! req-client-socket)] 
-    (swap! connected-clients conj {:socket req-client-socket :cb send-to-this-client-cb})))
+    (swap! ws-conns conj {:socket req-client-socket :cb send-to-this-client-cb})))
 
-(defn disconnect! [connected-clients req-client-socket {:keys [code reason]}]
+(defn disconnect! [ws-conns req-client-socket {:keys [code reason]}]
   (info "Remove socket from connected clients" code "reason:" reason)
-  (swap! connected-clients #(remove (comp #{req-client-socket} :socket) %)))
+  (swap! ws-conns #(remove (comp #{req-client-socket} :socket) %)))
 
-(defn notify-clients! [connected-clients req-client-socket msg]
+(defn notify-clients! [ws-conns req-client-socket msg]
   (info "Broadcast message to all connected clients: " msg)
-  (doseq [client @connected-clients]
+  (doseq [client @ws-conns]
     ((:cb client) (str "From server: " msg))))
 
-(defn make-handler [ws-clients]
+(defn make-handler [ws-conns]
   (fn [request]  ;; client requests a ws connection here
     (async/as-channel
       request
-      {:on-open    (partial connect! ws-clients)
-       :on-close   (partial disconnect! ws-clients) 
-       :on-message (partial notify-clients! ws-clients)}))) ;; client messages don't come from the connection socket, but from this callback
+      {:on-open    (partial connect! ws-conns)
+       :on-close   (partial disconnect! ws-conns) 
+       :on-message (partial notify-clients! ws-conns)}))) ;; client messages don't come from the connection socket, but from this callback
 
 
-(defrecord Ws-Handler-Immutant-simple [ws-clients ws-handler]
+(defrecord Ws-Handler-Immutant-simple [ws-conns ws-handler]
   component/Lifecycle
 
   (start [component]
-    (assoc component :ws-handler (make-handler ws-clients)))
-  ;; the handler holds a reference to the state (an atom) in a closure
-  ;; ws-handler therefore contains a stateful reference
-  ;; ws-handler is passed into other components
+    (assoc component :ws-handler (make-handler ws-conns)))
+  ;; ws-handler holds a reference to the ws-conn (an atom) in a closure
 
   (stop [component] component))
 
 
 ;; TEST:
-;; ws://localhost:4242/ws 
-
-;; (require '[dev :refer [system]])
-;; (def cls (-> system :ws-handler :clients))
-;;
-;; (doseq [client @cls]
-;;     (async/send! client (str "hi there!")))
-;;
-;; (-> @(-> system :clients)
-;;     vec
-;;     (get 0)
-;;     (async/send! "Tee")
-;;     )
-;;
-;; (def co @(-> system :clients))
-;;
-;; (def co1 (first co))
-;;
-;; (type co1)
-;;
-;; (def cf (partial async/send! co1))
-;;
-;; (cf "zwei")
-
-
+;; ws://localhost:5050/ws-simple
+(comment 
+  (require '[dev :refer [system]])
+  (def user-conn (-> system :ws-conns-simple deref first))
+  ((:cb user-conn) "Hi from server!")
+  (async/send! (:socket user-conn) "Hi from server!")
+  (doseq [client @cls]
+    (async/send! client (str "hi there!")))
+  )
