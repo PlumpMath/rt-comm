@@ -8,8 +8,8 @@
                  [org.clojure/core.match "0.3.0-alpha4"]
 
                  [org.clojure/core.async "0.2.374"]
-                 [co.paralleluniverse/quasar-core "0.7.5"]
-                 [co.paralleluniverse/pulsar "0.7.5"]
+                 [co.paralleluniverse/quasar-core "0.7.6"]
+                 [co.paralleluniverse/pulsar "0.7.6"]
 
                  ;; logging/tools
                  [com.taoensso/timbre "4.3.1"]
@@ -38,14 +38,14 @@
 
                  ] 
 
-  :java-agents  [[co.paralleluniverse/quasar-core "0.7.5"]]
+  :java-agents  [[co.paralleluniverse/quasar-core "0.7.6"]]
 
   :plugins      [[lein-ancient "0.6.10"]
                  [lein-cljfmt "0.5.3"] 
                  [io.aviso/pretty "0.1.20"]]
 
   :repl-options {;; Default to 30000 (30 seconds)
-                 :timeout 120000
+                 :timeout 240000
                  }
 
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]

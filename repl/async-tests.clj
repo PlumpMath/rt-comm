@@ -5,7 +5,7 @@
 
   '[clojure.core.match :refer [match]]
 
-  '[co.paralleluniverse.pulsar.core :refer [rcv sfn defsfn snd join spawn-fiber sleep]]
+  '[co.paralleluniverse.pulsar.core :as pl :refer [rcv sfn defsfn snd join spawn-fiber sleep]]
   '[co.paralleluniverse.pulsar.async :as pa]
   '[co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                               register! unregister! self]]
@@ -36,13 +36,13 @@
 ;;     [([1] :seq)] :a0
 ;;     [([1 & r] :seq)] [:a1 r]
 ;;     :else nil))
-;;
-;; (let [x [1 2]]
-;;   (match [x]
-;;     [[1 3]] :a0
-;;     [[1 & r]] [:a1 r]
-;;     :else 432))
-;;
+
+(let [x [1 2]]
+  (match [x]
+    [[1 3]] :a0
+    [[1 & r]] [:a1 r]
+    :else 432))
+
 ;; (let [x {:a 6 :c 232 :b 1}]
 ;;   (match [x]
 ;;     [{:a gd :b 1}] [:a0 gd]
@@ -294,6 +294,21 @@
 
 
 ;; -------------------------------------------------------------------------------
+
+(let [v0 (pl/promise)
+      v1 (pl/promise)
+      v2 (pl/promise #(+ @v1 1))
+      v3 (pl/promise #(+ @v1 @v2))
+      v4 (pl/promise #(* (+ @v3 @v2) @v0))]
+  (Strand/sleep 50)
+  (deliver v1 1)
+  ;; all dependant strand code runs first before main thread continues
+  ;; now all but the first and the last promise is deliverd
+  (mapv realized? [v0 v1 v2 v3 v4]) ; => [false true true true false]
+  (deliver v0 2)
+  @v4) ; => 10
+
+
 
 
 (def af (first @cls))
