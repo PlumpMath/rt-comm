@@ -300,7 +300,7 @@
       v2 (pl/promise #(+ @v1 1))
       v3 (pl/promise #(+ @v1 @v2))
       v4 (pl/promise #(* (+ @v3 @v2) @v0))]
-  (Strand/sleep 50)
+  (Strand/sleep 0)
   (deliver v1 1)
   ;; all dependant strand code runs first before main thread continues
   ;; now all but the first and the last promise is deliverd
@@ -309,7 +309,190 @@
   @v4) ; => 10
 
 
+(def non-websocket-request
+  {:status 400
+   :headers {"content-type" "application/text"}
+   :body "Expected a websocket request."})
 
+
+(def users [{:user-id "pete" :pw "abc"} 
+            {:user-id "paul" :pw "cde"} 
+            {:user-id "mary" :pw "fgh"}])
+
+(defn registered-user? [login]
+  (-> (partial = login) (filter users) not-empty))
+
+(defn check-authentification [auth-message]
+  (match [auth-message]
+         [{:cmd [:auth login]}] (if (registered-user? login) 
+                                  [:success (:user-id login)] :failed)
+         [:false] :conn-closed
+         :else :no-auth-cmd))
+
+(check-authentification [:free "eins"])
+
+(do (def conn-d (d/deferred)) ;; wait for connection
+    (def auth   (d/chain conn-d  ;; when connected ..
+                         #(s/take! %) ;; take message from conn
+                         check-authentification ;; just pass into an fn that returns 
+                         ))
+    (def err    (d/catch auth (fn [ex] non-websocket-request)))
+    (def tim    (d/timeout! auth 30000 :timeout!))
+
+    (def stree  (s/stream))
+    ;; (def rt (d/success! conn-d stree)) ;; return the user-socket after connection - 
+    ;; (def rt (d/error! conn-d (Exception. "err message.."))) ;; or error 
+    )
+
+(s/close! stree)
+(identity [conn-d auth tim])
+(def rt (d/success! conn-d stree))
+(def rt2 (s/put! stree {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
+
+()
+
+
+(do (def conn-d (d/deferred)) 
+    (def auth (-> (d/chain conn-d       ;; Async 1: Wait for connection
+                           #(s/take! %) ;; Async 2: Wait for first message
+                           check-authentification) ;; Returns :failed, [:success user-id], ..
+                  (d/timeout! 10000 :timed-out) ;; Connection and auth must be competed within timeout
+                  (d/catch (fn [e] :conn-error)))) ;; Catch non-WS requests. Other errors? 
+
+    (def send-msg-close #(d/future (do (s/put!   @conn-d %)
+                                       (s/close! @conn-d)))) 
+    ;; 2. AUTH:
+    (def re-auth (d/chain auth 
+                          #(do (info "auth:" %) (identity %)) 
+                          #(match [%] ;; Handle outcome of auth process
+                                  [:conn-error]  non-websocket-request ;; Return Http response on error
+                                  [:timed-out]   (send-msg-close "Authentification timed out! Disconnecting.")
+                                  [:no-auth-cmd] (send-msg-close "No auth. command received! Disconnecting.")
+                                  [:failed]      (send-msg-close "User-id - password login failed! Disconnecting.")
+                                  [:conn-closed] (info "Ws client closed connection before auth.")
+
+                                  [[:success user-id]]     (d/future (do (s/put! @conn-d "Login success!")
+                                                                         (info (format "Ws user-id %s loged in." user-id))
+                                                                         ;; (curried-incoming-out-fn @conn-d user-id)
+                                                                         "Ws auth success return val"))
+                                  :else (error "Ws connection: Invalid auth response!" %))))
+    (def stree  (s/stream))
+    (def rt (d/success! conn-d stree)) ;; return the user-socket after connection - 
+    ;; (def rt (d/error! conn-d (Exception. "err message.."))) ;; or error 
+
+    )
+
+(def s1 (s/stream))
+(def s2 (s/stream))
+
+(def rr (s/connect s1 s2))
+
+(s/consume #(prn %) s1)
+
+
+
+(do (prn "ein"))
+
+(def rt2 (s/put! stree {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
+(s/put! stree "rei")
+(def me (d/future (s/close! stree)))
+;; HIER
+(let [conn-d (d/deferred)
+      auth   (-> (d/chain conn-d       ;; Async 1: Wait for connection
+                          #(s/take! %) ;; Async 2: Wait for first message
+                          check-authentification) ;; Returns :failed, [:success user-id], ..
+                 (d/timeout! 10000 :timed-out) ;; Connection and auth must be competed within timeout
+                 (d/catch (fn [e] :conn-error))) ;; Catch non-WS requests. Other errors? 
+
+      send-msg-close #(d/future (do (s/put!   @conn-d %) 
+                                    (s/close! @conn-d)))] 
+
+  (d/chain auth #(case %
+                   [:conn-error]  non-websocket-request ;; Return Http response immediately
+                   [:timed-out]   (send-msg-close "Authentification timed out! Disconnecting.")
+                   [:no-auth-cmd] (send-msg-close "No auth. command received! Disconnecting.")
+                   [:failed]      (send-msg-close "User-id - password login failed! Disconnecting.")
+                   [:conn-closed] (info "Ws client closed connection before auth.")
+                   [[:success user-id]]     (d/future (do (s/put! @conn-d "Login success!")
+                                                          (curried-incoming-out-fn @conn-d)
+                                                          (info )))
+                   (error "Ws connection: unexpected case!" %)
+                   )))
+
+send different messeges for timeout and failed auth
+disconnect in botth cases.
+handler should return conn-d which may yealed the "connection faild" response.
+
+
+(do (def conn-d (d/deferred)) ;; wait for connection
+    (def auth   (d/chain conn-d  ;; when connected ..
+                         #(s/take! %) ;; take message from conn
+                         check-authentification ;; just pass into an fn that returns 
+                         ))
+    (def err    (d/catch auth (fn [ex] non-websocket-request)))
+    (def tim    (d/timeout! auth 10000 :timeout!))
+
+    (def stree  (s/stream))
+    ;; (def rt (d/success! conn-d stree)) ;; return the user-socket after connection - 
+    ;; (def rt (d/error! conn-d (Exception. "err message.."))) ;; or error 
+    )
+
+
+
+(let [conn-d (d/deferred) 
+      auth   (d/chain conn-d 
+                      #(s/take! %)
+                      check-authentification
+                      (d/timeout! 4000 false)
+                      )    
+      ])
+
+(d/timeout! 4000 :timeout)
+
+
+(-> (d/deferred)
+    (d/chain #(s/take! %)
+             check-authentification
+             (d/timeout! 4000 false)
+             )
+    (d/catch (fn [] non-websocket-request)))
+
+(let [conn-d (-> (http/websocket-connection request) 
+                 (d/catch (fn [_] nil))) 
+      ])
+
+
+
+(defn ein [a] (if a ))
+
+(def v1 (d/deferred))
+(def v2 (d/deferred))
+(def v11 (d/chain v1 
+                  #(do (info "ouut:" %) (inc %)) 
+                  #(d/future (info "b-success:" % @v2))
+                  ))
+
+(def v2 (d/on-realized v1 #(info "success:" %) #(info "err:" %)))
+
+(def t1 (d/timeout! v1 4000 :timeout!))
+
+(d/success! v1 88)
+(d/success! v2 10000)
+
+(def s1 (s/stream))
+
+(def p1 (s/put! s1 5))
+
+(def vs1 (s/take! s1))
+
+(def h1 (pl/promise #(identity (s/take! s1))))
+
+(def h1 (pl/promise #(identity 1)))
+
+(def p1 (pl/promise))
+(def p2 (pl/promise #(identity @v1)))
+@p2
+(deliver p1 :ree)
 
 (def af (first @cls))
 (indentity abc)

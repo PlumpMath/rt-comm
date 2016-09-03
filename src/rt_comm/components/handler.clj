@@ -24,7 +24,7 @@
 
     (GET "/ws-simple" request (ws-handler-simple request))
 
-    (GET "/ws-main" request (ws-handler-main request))
+    (GET "/ws-main"   request (ws-handler-main request))
 
     (GET "/rtc/ab/:cc" [cc] (str {:ab 234 
                                   :cd [22 44]
