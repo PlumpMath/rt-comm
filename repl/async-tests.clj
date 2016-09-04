@@ -43,6 +43,12 @@
     [[1 & r]] [:a1 r]
     :else 432))
 
+(let [x [:ada 2]]
+  (match [x]
+    [[:aa & r]] [:a1 r]
+    [[_ ld]] [:a0 ld]
+    :else 432))
+
 ;; (let [x {:a 6 :c 232 :b 1}]
 ;;   (match [x]
 ;;     [{:a gd :b 1}] [:a0 gd]

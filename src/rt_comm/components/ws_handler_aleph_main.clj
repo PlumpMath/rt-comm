@@ -1,51 +1,42 @@
 (ns rt-comm.components.ws-handler-aleph-main
-  (:require [com.stuartsierra.component :as component] 
+  (:require [rt-comm.auth :refer [check-authentification non-websocket-request]] 
+
+            [com.stuartsierra.component :as component]
+
             [aleph.http :as http]
             [manifold.stream :as s]
             [manifold.deferred :as d]
-            [manifold.bus :as bus]
+            [co.paralleluniverse.pulsar.core :refer [rcv sfn defsfn snd join spawn-fiber sleep]]
+            [co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
+                                                       register! unregister! self]]
 
             [clojure.core.match :refer [match]]
-            [taoensso.timbre :refer [debug info error spy]]))
+            [taoensso.timbre :refer [debug info error spy]]
+            ))
 
 
-(def non-websocket-request
-  {:status 400
-   :headers {"content-type" "application/text"}
-   :body "Expected a websocket request."})
+(def ws-client-incoming-actor 
+  "ws-client-incoming-actor"
+  (sfn ws-client-incoming-actor [ev-queue]
+       (loop [aa 123]
 
+         (receive
+           [:append! new-events] (do
+                                   (println "eins")
+                                   (recur 123))
+           ))))
 
-(def users [{:user-id "pete" :pw "abc"} 
-            {:user-id "paul" :pw "cde"} 
-            {:user-id "mary" :pw "fgh"}])
+(defn init-ws-user! [user-id user-socket ws-conns ev-queue]
+  (let [incoming-socket-source (s/->source user-socket) 
+        outgoing-socket-sink   (s/->sink user-socket) 
+        incoming-actor (spawn ,,,)
+        outgoing-actor nil]
 
-(defn registered-user? [login]
-  (-> (partial = login) (filter users) not-empty))
+    (swap! ws-conns conj {:user-id        user-id
+                          :socket         user-socket
+                          :incoming-actor incoming-actor
+                          :outgoing-actor nil})))
 
-(defn check-authentification [auth-message]
-  (info "auth: msg" auth-message)
-  (match [auth-message]
-         [{:cmd [:auth login]}] (if (registered-user? login) 
-                                  [:success (:user-id login)] :failed)
-         [:false] :conn-closed
-         ["test"] [:success "test-id"] 
-         :else    :no-auth-cmd))
-
-
-;; (def ws-client-incoming-actor 
-;;   "ws-client-incoming-actor"
-;;   (sfn ws-client-incoming-actor [ev-queue]
-;;        (loop [aa 123]
-;;
-;;          (receive
-;;            [:append! new-events] (do
-;;                                    (println "eins")
-;;                                    (recur 123))
-;;            ))))
-;;
-;;
-;; (defn init-ws-user []
-;;   ,,,)
 
 (defn make-handler [ws-conns event-queue]
   "The ws-handler will connect and auth the requesting ws-client and 
@@ -64,7 +55,6 @@
                                         (s/close! @conn-d) nil))] ;; Ws-handler will return nil - see notes/question
       ;; 2. AUTH:
       (d/chain auth 
-               #(do (info "auth:" %) %) 
                #(match [%] ;; Handle outcome of auth process
                        [:conn-error]  non-websocket-request ;; Return Http response on error
                        [:timed-out]   (send-msg-close "Authentification timed out! Disconnecting.")
@@ -73,12 +63,12 @@
                        [:conn-closed] (info "Ws client closed connection before auth.")
 
                        [[:success user-id]] (d/future (do (s/put! @conn-d "Login success!")
-                                                          (info (format "Ws user-id %s loged in." user-id))
+                                                          (info (format "Ws user-id %s loged in" user-id))
                                                           ;; (curried-incoming-out-fn @conn-d user-id)
-                                                          "Ws auth success return val"))
+                                                          nil))
                        :else (error "Ws connection: Invalid auth response!" %))))))
 
-
+;; TODO: use (d/on-realized) to intit actor in main thread?!
 
 (defrecord Ws-Handler-Aleph-main [ws-conns event-queue ws-handler]
   component/Lifecycle

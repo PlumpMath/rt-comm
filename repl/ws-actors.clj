@@ -5,7 +5,7 @@
 
   '[clojure.core.match :refer [match]]
 
-  '[co.paralleluniverse.pulsar.core :refer [rcv sfn defsfn snd join spawn-fiber sleep]]
+  '[co.paralleluniverse.pulsar.core :as p :refer [rcv channel fiber sfn defsfn snd join spawn-fiber sleep]]
   '[co.paralleluniverse.pulsar.async :as pa]
   '[co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                               register! unregister! self]]
@@ -23,6 +23,36 @@
                                      offer! poll! promise-chan
                                      sliding-buffer]])
 
+
+(def ch1 (channel 6))
+(def rin (p/rcv-into [] ch1 4))
+
+(let [ch (channel)
+      fiber (spawn-fiber #(p/rcv-into [] ch 3))
+      fb    (spawn-fiber #(p/snd-seq ch (range 5)))]
+  (p/close! ch)
+  (join fiber))
+
+(deliver 23)
+
+(let [ch (channel)
+      f #(rcv ch)
+      fiber1 (spawn-fiber f)
+      fiber2 (spawn-fiber f)]
+  (snd ch "m1")
+  (snd ch "m2")
+  ;; (p/close! ch)
+  #{(join fiber1) (join fiber2)})
+
+(def ch-incomming (channel 16 :displace true true))
+
+(def on-message (fn [_ msg] (snd ch-incomming msg)) 
+
+
+(def ss (fiber (snd ch1 9)))
+(def ss (snd ch1 6))
+(def @rc (fiber (rcv ch)))
+(def @v1 (fiber 2))
 
 (def uso (-> system :ws-clients-simple #_deref #_first))
 (-> (s/description uso) :source :buffer-size)
