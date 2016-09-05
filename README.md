@@ -1,6 +1,6 @@
 # rt-comm
 
-Playground app exploring a clojure stack for scalable real-time communication, featuring component, aleph, pulsar and DynamoDB.
+Playground app exploring a clojure stack for scalable real-time communication, featuring Component, Aleph, Pulsar and DynamoDB.
 
 ### Usage
 
