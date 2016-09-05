@@ -24,6 +24,17 @@
                                      sliding-buffer]])
 
 
+(let [[a b cc] (repeatedly 3 p/promise)]
+  cc)
+(p/promise)
+
+(def st (s/stream))
+(def tk (s/take! st))
+
+(def cl (s/close! st))
+(s/put! st "eins")
+(s/closed? st)
+
 (def ch1 (channel 6))
 (def rin (p/rcv-into [] ch1 4))
 

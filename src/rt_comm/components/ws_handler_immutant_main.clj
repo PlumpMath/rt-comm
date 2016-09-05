@@ -35,61 +35,35 @@
                                    (recur 123))
            ))))
 
+:user-id weg
+
+(defn auth-process [keys ..] 
+  (let [auth-result (p/promise #(-> (rcv ch-incoming 10000 :ms) ;; Wait for first message/auth-message!
+                                    (valp some? :timed-out)  ;; nil -> :timed-out
+                                    check-authentification)) ;; Returns :failed, [:success user-id], .. 
+        ]
+    (fiber (match [@auth-result] ;; Handle outcome of auth process
+                  [[:success user-id]] (do (async/send! @on-open-user-socket "Login success!") 
+                                           (info (format "Ws user-id %s loged in" user-id))
+                                           (-> init-ws-user-args 
+                                               (assoc :user-id user-id)
+                                               (assoc :user-socket-outgoing @on-open-user-socket)
+                                               init-ws-user!)) 
+                  [[_ user-msg]]       (do (async/send! @on-open-user-socket user-msg) ;; Failed outcomes: :timed-out :no-auth-cmd :failed 
+                                           (info (format "Ws-auth attempt failed: %s" user-id))
+                                           (async/close @on-open-user-socket))))))
+
 ;; -------------------------------------------------------------------------------
-
-(def ab (fn [_]))
-(ab 1)
-;; -------------------------------------------------------------------------------
-[ws-conns event-queue]
-[request]
-
-
-
-(let [ch-incoming (channel 16 :displace true true) ;; Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
-      [on-open-user-socket on-close-msg on-error-err] (repeatedly 3 p/promise) 
-
-      immutant-cbs {:on-open    (fn [user-socket] (deliver on-open-user-socket user-socket)) 
-                    :on-close   (fn [_ ex] (deliver on-close-msg ex))
-                    :on-error   (fn [_ e]  (deliver on-error-err e))
-                    ;; Feed all incoming msgs into buffered dropping channel - will never block
-                    :on-message (fn [_ msg] (snd ch-incomming msg))}
-
-      ring-response (async/as-channel request immutant-cbs) ;; Does not block. Could use user-socket in :body?
-
-      pr-auth-result (p/promise #(-> (rcv ch-incomming 10000 :ms) ;; Wait for first message/auth-message!
-                                     (valp some? :timed-out)  ;; nil -> :time-out
-                                     check-authentification)) ;; Returns :failed, [:success user-id], .. 
-
-      fb-exe-outcome (fiber (match [@pr-auth-result] ;; Handle outcome of auth process
-                                   [[:success user-id]] (do (send-out-socket! user-msg) 
-                                                            (info (format "Ws user-id %s loged in" user-id))
-                                                            (init-ws-user! user-id 
-                                                                           @on-open-user-socket 
-                                                                           ch-incomming 
-                                                                           on-close-msg on-error-err
-                                                                           ws-conns event-queue)) 
-                                   [[_ user-msg]]       (do (send-out-socket! user-msg) ;; Failed outcomes: :timed-out :no-auth-cmd :failed 
-                                                            (info (format "Ws-auth attempt failed: %s" user-id))
-                                                            (close-socket!))))
-      ]
-  ring-response)
-
-
-
-; ; -------------------------------------------------------------------------------
-
-
-
 
 (defn make-handler [ws-conns event-queue]
   (fn [request]  ;; client requests a ws connection here
 
-    (let [ch-incoming (channel 16 :displace true true) ;; Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
+    (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
           [on-open-user-socket on-close-msg on-error-err] (repeatedly 3 p/promise) 
 
           init-ws-user-args {:user-id              nil ;; Will be provide by @auth-result
                              :user-socket-outgoing nil ;; Will be provide by @on-open-user-socket
-                             :ch-incoming ch-incoming
+                             :ch-incoming  ch-incoming
                              :on-close-msg on-close-msg
                              :on-error-err on-error-err
                              :ws-conns     ws-conns
@@ -98,26 +72,25 @@
           immut-cbs {:on-open    (fn [user-socket] (deliver on-open-user-socket user-socket)) 
                      :on-close   (fn [_ ex] (deliver on-close-msg ex))
                      :on-error   (fn [_ e]  (deliver on-error-err e))
-                     :on-message (fn [_ msg] (snd ch-incoming msg))} ;; Feed all incoing msgs into buffered dropping channel - will never block 
+                     :on-message (fn [_ msg] (snd ch-incoming msg))} ;; Feed all incoming msgs into buffered dropping channel - will never block 
 
           auth-result (p/promise #(-> (rcv ch-incoming 10000 :ms) ;; Wait for first message/auth-message!
-                                      (valp some? :timed-out)  ;; nil -> :time-out
+                                      (valp some? :timed-out)  ;; nil -> :timed-out
                                       check-authentification)) ;; Returns :failed, [:success user-id], .. 
-
-          exe-outcome (fiber (match [@auth-result] ;; Handle outcome of auth process
-                                    [[:success user-id]] (do (send-out-socket! user-msg) 
+          
+          _exec-outc  (fiber (match [@auth-result] ;; Handle outcome of auth process
+                                    [[:success user-id]] (do (async/send! @on-open-user-socket "Login success!") 
                                                              (info (format "Ws user-id %s loged in" user-id))
                                                              (-> init-ws-user-args 
                                                                  (assoc :user-id user-id)
                                                                  (assoc :user-socket-outgoing @on-open-user-socket)
                                                                  init-ws-user!)) 
-                                    [[_ user-msg]]       (do (send-out-socket! user-msg) ;; Failed outcomes: :timed-out :no-auth-cmd :failed 
+                                    [[_ user-msg]]       (do (async/send! @on-open-user-socket user-msg) ;; Failed outcomes: :timed-out :no-auth-cmd :failed 
                                                              (info (format "Ws-auth attempt failed: %s" user-id))
-                                                             (close-socket!))))
+                                                             (async/close @on-open-user-socket))))
           ]
       (async/as-channel request immut-cbs) ;; Does not block. Returns ring response. Could use user-socket in response :body 
       )))
-
 
 
 
