@@ -25,8 +25,9 @@
 
          ["test"]               [:success "test-id"] 
 
-         :timed-out             [:timed-out "Authentification timed out! Disconnecting."] 
+         [:timed-out]           [:timed-out "Authentification timed out! Disconnecting."] 
          :else                  [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
 
+;; (check-authentification {:cmd [:auth {:user-id "pete" :pw "abc"}]})
 
 

@@ -2,6 +2,8 @@
   '[dev :refer [system db-conns reset]]
   '[rt-comm.api :refer [add-order! find-orders find-all-orders]]
   '[rt-comm.utils.logging :as logging]
+  '[rt-comm.auth :refer [check-authentification non-websocket-request]]
+  '[rt-comm.utils.utils :refer [valp]]
 
   '[clojure.core.match :refer [match]]
 
@@ -22,6 +24,24 @@
                                      close! put! take! thread timeout
                                      offer! poll! promise-chan
                                      sliding-buffer]])
+
+
+(def check-auth-from-chan 
+  (sfn check-auth-from-chan [ch timeout] 
+       "Return [:auth-outcome 'message'] after receiving msg on ch.
+       Potentially blocking."
+       (-> (rcv ch timeout :ms) ;; Wait for first message/auth-message!
+           (valp some? :timed-out)  ;; nil -> :timed-out
+           check-authentification)))
+
+
+(def ch-in (channel 16 :displace true true))
+
+(def auth-res (spawn-fiber check-auth-from-chan ch-in 10000))
+(def drei (spawn-fiber (fn [] (info "fib:" (join auth-res)))))
+
+(def pu (snd ch-in {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
+
 
 
 (let [[a b cc] (repeatedly 3 p/promise)]
