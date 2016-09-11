@@ -53,7 +53,7 @@
                    :source-paths ["dev"]
                    :jvm-opts [
                               ;; "-Dco.paralleluniverse.pulsar.instrument.auto=all"
-                              "-Dco.paralleluniverse.fibers.verifyInstrumentation=true"
+                              ;; "-Dco.paralleluniverse.fibers.verifyInstrumentation=true"
                               ]}}
   )
 

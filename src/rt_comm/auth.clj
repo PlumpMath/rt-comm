@@ -20,7 +20,7 @@
 (defn check-authentification [auth-message]
   (match [auth-message]
          [{:cmd [:auth login]}] (if (registered-user? login) 
-                                  [:success (:user-id login)] 
+                                  [:success (:user-id login) "Login success!"] 
                                   [:failed "User-id - password login failed! Disconnecting."])
 
          ["test"]               [:success "test-id"] 
