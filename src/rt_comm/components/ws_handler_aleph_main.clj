@@ -1,5 +1,5 @@
 (ns rt-comm.components.ws-handler-aleph-main
-  (:require [rt-comm.auth :refer [check-authentification non-websocket-request]] 
+  (:require [rt-comm.auth] 
 
             [com.stuartsierra.component :as component]
 
@@ -14,7 +14,7 @@
             [taoensso.timbre :refer [debug info error spy]]
             ))
 
-
+;;
 ;; (def ws-client-incoming-actor 
 ;;   "ws-client-incoming-actor"
 ;;   (sfn ws-client-incoming-actor [ev-queue]

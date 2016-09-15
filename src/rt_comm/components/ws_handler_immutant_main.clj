@@ -1,5 +1,5 @@
 (ns rt-comm.components.ws-handler-immutant-main
-  (:require [rt-comm.auth :refer [check-authentification non-websocket-request]]  
+  (:require [rt-comm.auth] 
             [rt-comm.utils.utils :refer [valp]]
 
             [com.stuartsierra.component :as component] 
@@ -29,7 +29,7 @@
 
 ;; -------------------------------------------------------------------------------
 
-(defn make-handler [ws-conns event-queue]
+#_(defn make-handler [ws-conns event-queue]
   (fn [request]  ;; client requests a ws connection here
 
     (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
@@ -51,6 +51,7 @@
                      :on-message (fn [_ msg] (snd ch-incoming msg))} ;; Feed all incoming msgs into buffered dropping channel - will never block 
           ]
       (fiber (some-> auth-ws-user-args 
+                     (as-> m (assoc m :user-socket @(:on-open-user-socket m))) ;; wait for connection
                      (auth-process async/send! async/close) ;; returns augmented init-ws-user-args or nil
                      (merge init-ws-user-args)
                      init-ws-user!))

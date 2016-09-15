@@ -5,7 +5,7 @@
 
   '[clojure.core.match :refer [match]]
 
-  '[co.paralleluniverse.pulsar.core :as pl :refer [rcv sfn defsfn snd join spawn-fiber sleep]]
+  '[co.paralleluniverse.pulsar.core :as pl :refer [rcv sfn defsfn snd join fiber spawn-fiber sleep]]
   '[co.paralleluniverse.pulsar.async :as pa]
   '[co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                               register! unregister! self]]
@@ -296,7 +296,20 @@
              :after 30 :timeout)))
 
 
+(def aa (fiber (+ 2 5)))
+@aa
 
+(def bb (d/deferred))
+(deliver bb "eins")
+@bb
+
+(def bc (d/chain
+          aa
+          (fn [x] (inc x))))
+
+(def ab (fiber (str @aa)))
+(def ab (fiber (str @bb)))
+@ab
 
 
 ;; -------------------------------------------------------------------------------
@@ -453,7 +466,7 @@ handler should return conn-d which may yealed the "connection faild" response.
                       )    
       ])
 
-(d/timeout! 4000 :timeout)
+(def aajj (d/timeout! 4000 :timeout))
 
 
 (-> (d/deferred)
@@ -486,6 +499,14 @@ handler should return conn-d which may yealed the "connection faild" response.
 (d/success! v2 10000)
 
 (def s1 (s/stream))
+
+(def ta (s/take! s1))
+@ta
+
+(def tt (-> (s/take! s1)
+            (d/timeout! 4000 :timed-out)))
+
+
 
 (def p1 (s/put! s1 5))
 
