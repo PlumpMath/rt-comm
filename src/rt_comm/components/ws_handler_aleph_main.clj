@@ -6,7 +6,7 @@
             [aleph.http :as http]
             [manifold.stream :as s]
             [manifold.deferred :as d]
-            [co.paralleluniverse.pulsar.core :refer [rcv sfn defsfn snd join spawn-fiber sleep]]
+            [co.paralleluniverse.pulsar.core :as p :refer [rcv fiber sfn defsfn snd join spawn-fiber sleep]]
             [co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                                        register! unregister! self]]
 
@@ -36,37 +36,44 @@
 ;;                           :socket         user-socket
 ;;                           :incoming-actor incoming-actor
 ;;                           :outgoing-actor nil})))
+
+
+(defn make-handler [ws-conns event-queue]
+  (fn ws-handler [request]  ;; client requests a ws connection here
+
+    (let [auth-ws-user-args {:on-open-user-socket (http/websocket-connection request)
+                             :server              :aleph}  
+          ;:user-id            nil ;; Will be provided in auth-process - auth-result
+          ;:user-socket        nil ;; Will be provide by @on-open-user-socket
+
+          init-ws-user-args {:ws-conns      ws-conns
+                             :event-queue   event-queue}]
+
+      (d/future (some-> auth-ws-user-args 
+                        (connect-process 200) ;; wait for connection
+                        (auth-process s/put! s/close! 200) ;; returns augmented init-ws-user-args or nil
+                        (merge init-ws-user-args)
+                        #_init-ws-user!)))))
+
+;; TEST CODE: manual
+;; (do
+;; (def on-open-user-socket (d/deferred))
+;; (def auth-ws-user-args {:on-open-user-socket on-open-user-socket
+;;                         :server :aleph})  
+;; (def calls (atom []))
+;; (def send! (fn [ch msg] (swap! calls conj msg)))
+;; (def close (fn [ch] (swap! calls conj "closed!")))
+;; (def user-socket (s/stream))
 ;;
+;; (def fib-rt (d/future (some-> auth-ws-user-args 
+;;                               (connect-process 4000) 
+;;                               (auth-process send! close 4000))))
+;; )
 ;;
-;; (defn make-handler [ws-conns event-queue]
-;;   "The ws-handler will connect and auth the requesting ws-client and 
-;;   then call init.."
-;;   (fn connect-and-auth [request]  ;; client requests a ws connection here
-;;     ;; Return a deferred -> async handler
-;;     ;; 1. CONNECT:
-;;     (let [conn-d (http/websocket-connection request) 
-;;           auth   (-> (d/chain conn-d       ;; Async 1: Wait for connection
-;;                               #(s/take! %) ;; Async 2: Wait for first message
-;;                               check-authentification) ;; Returns :failed, [:success user-id], ..
-;;                      (d/timeout! 10000 :timed-out) ;; Connection and auth must be competed within timeout
-;;                      (d/catch (fn [e] :conn-error))) ;; Catch non-WS requests. Other errors? 
-;;
-;;           send-msg-close #(d/future (do (s/put!   @conn-d %) 
-;;                                         (s/close! @conn-d) nil))] ;; Ws-handler will return nil - see notes/question
-;;       ;; 2. AUTH:
-;;       (d/chain auth 
-;;                #(match [%] ;; Handle outcome of auth process
-;;                        [:conn-error]  non-websocket-request ;; Return Http response on error
-;;                        [:timed-out]   (send-msg-close "Authentification timed out! Disconnecting.")
-;;                        [:no-auth-cmd] (send-msg-close "Expected auth. command not found! Disconnecting.")
-;;                        [:failed]      (send-msg-close "User-id - password login failed! Disconnecting.")
-;;                        [:conn-closed] (info "Ws client closed connection before auth.")
-;;
-;;                        [[:success user-id]] (d/future (do (s/put! @conn-d "Login success!")
-;;                                                           (info (format "Ws user-id %s loged in" user-id))
-;;                                                           ;; (curried-incoming-out-fn @conn-d user-id)
-;;                                                           nil))
-;;                        :else (error "Ws connection: Invalid auth response!" %))))))
+;; (deliver on-open-user-socket user-socket)
+;; (future (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
+;; (deref fib-rt)
+
 
 ;; TODO: use (d/on-realized) to intit actor in main thread?!
 

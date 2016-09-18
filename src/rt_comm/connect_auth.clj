@@ -38,30 +38,6 @@
          :else                  [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
 
 
-
-#_(defn make-handler [ws-conns event-queue]
-  "The ws-handler will connect and auth the requesting ws-client and 
-  then call init.."
-  (fn connect-and-auth [request]  ;; client requests a ws connection here
-    ;; Return a deferred -> async handler
-    ;; 1. CONNECT:
-    (let [conn-d (http/websocket-connection request) 
-          auth   (-> (d/chain conn-d       ;; Async 1: Wait for connection
-                              #(s/take! %) ;; Async 2: Wait for first message
-                              check-authentification) ;; Returns :failed, [:success user-id], ..
-                     (d/timeout! 10000 :timed-out) ;; Connection and auth must be competed within timeout
-                     (d/catch (fn [e] :conn-error))) ;; Catch non-WS requests. Other errors? 
-
-          send-msg-close #(d/future (do (s/put!   @conn-d %) 
-                                        (s/close! @conn-d) nil))] ;; Ws-handler will return nil - see notes/question
-      ;; 2. AUTH:
-      (d/chain auth 
-               #(match [%] ;; Handle outcome of auth process
-                       [:conn-error]  non-websocket-request ;; Return Http response on error
-                       [:timed-out]   (send-msg-close "Authentification timed out! Disconnecting.")
-                       )))))
-
-
 (defn check-auth-from-chan-aleph [{:keys [user-socket] :as m} timeout] 
   "Produce [:auth-outcome 'message' user-id] after receiving msg in :user-socket
   Expects manifold stream in m :user-socket, adds :auth-result to m."
@@ -110,13 +86,10 @@
   m)
 
 (defn close-or-pass! [m close-fn]
-  (def mm m)
-  (def cf close-fn)
   (if-not (:auth-success m)
     (do (close-fn (:user-socket m)) nil)) ;; Return nil on failure
   m)
 
-;; (cf (:user-socket mm))
 
 (defn auth-process [auth-args send-fn close-fn timeout]
   "Wait for auth cmd, add user-id and send success msg or

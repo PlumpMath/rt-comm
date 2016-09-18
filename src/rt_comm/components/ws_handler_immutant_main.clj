@@ -30,15 +30,16 @@
 ;; -------------------------------------------------------------------------------
 
 (defn make-handler [ws-conns event-queue]
-  (fn [request]  ;; client requests a ws connection here
+  (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
           [on-open-user-socket on-close-msg on-error-err] (repeatedly 3 p/promise) 
 
-          auth-ws-user-args {:ch-incoming          ch-incoming
-                             :on-open-user-socket  on-open-user-socket}  
-                             ;:user-id              nil ;; Will be provided in auth-process - auth-result
-                             ;:user-socket-outgoing nil ;; Will be provide by @on-open-user-socket
+          auth-ws-user-args {:ch-incoming         ch-incoming
+                             :on-open-user-socket on-open-user-socket
+                             :server              :immutant}  
+                             ;:user-id            nil ;; Will be provided in auth-process - auth-result
+                             ;:user-socket        nil ;; Will be provide by @on-open-user-socket
                              
           init-ws-user-args {:on-close-msg  on-close-msg
                              :on-error-err  on-error-err

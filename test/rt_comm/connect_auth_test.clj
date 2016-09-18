@@ -69,9 +69,27 @@
     (future (snd ch {:cmd [:auth {:user-id user-id :pw "abc"}]}))
     @fib-rt))
 
+(defn do-conn-auth-aleph [wait-conn wait-auth user-socket user-id !calls]
+  "Connection and auth mimicking ws-handler code"
+  (let [on-open-user-socket (d/deferred)
+        auth-ws-user-args {:on-open-user-socket  on-open-user-socket
+                           :server :aleph}  
+        send! (fn [ch msg] (swap! !calls conj msg))
+        close (fn [ch] (do (s/close! ch) 
+                           (swap! !calls conj "closed!")))
+        ;; TESTS THIS CODE:
+        fib-rt (d/future (some-> auth-ws-user-args 
+                                 (connect-process 200) 
+                                 (auth-process send! close 200)))]
+    (sleep wait-conn)
+    (deliver on-open-user-socket user-socket)
+    (sleep wait-auth)
+    (future (s/put! user-socket {:cmd [:auth {:user-id user-id :pw "abc"}]}))
+    @fib-rt))
 
-(deftest connect-auth
-  (testing "Connect and auth process immutant" 
+
+(deftest connect-auth-immutant
+  (testing "Connect and auth process Immutant" 
     (testing "Connection process timeout" 
       (let [!calls (atom [])
             user-socket (channel)
@@ -118,6 +136,57 @@
         (is (= @!calls
                ["Login success!"]))
         (is (-> user-socket p/closed? not))))))
+
+
+(deftest conn-auth-aleph 
+  (testing "Connect and auth process Aleph" 
+    (testing "Connection process timeout" 
+      (let [!calls (atom [])
+            user-socket (s/stream)
+            user-id "pete"
+            ret (do-conn-auth-aleph 210 100 user-socket user-id !calls)]
+        (is (nil? ret) "yealds nil")
+        (is (empty? @!calls) "sends no msgs to client")))
+
+    (testing "Auth process timeout" 
+      (let [!calls (atom [])
+            user-socket (s/stream)
+            user-id "pete"
+            ret (do-conn-auth-aleph 150 210 user-socket user-id !calls)]
+        (is (= (-> ret :auth-success)
+               false))
+        (is (= (-> ret :auth-result first)
+               :timed-out))
+        (is (= @!calls
+               ["Authentification timed out! Disconnecting." "closed!"]))
+        (is (s/closed? user-socket)))) 
+
+    (testing "Login failed" 
+      (let [!calls (atom [])
+            user-socket (s/stream)
+            user-id "non-user"
+            ret (do-conn-auth-aleph 190 190 user-socket user-id !calls)]
+        (is (= (-> ret :auth-success)
+               false))
+        (is (= (-> ret :auth-result first)
+               :failed))
+        (is (= @!calls
+               ["Login failed! Disconnecting." "closed!"]))
+        (is (s/closed? user-socket))))
+
+    (testing "Login succeeded" 
+      (let [!calls (atom [])
+            user-socket (s/stream)
+            user-id "pete"
+            ret (do-conn-auth-aleph 190 190 user-socket user-id !calls)]
+        (is (= (-> ret :auth-success)
+               true))
+        (is (= (-> ret :auth-result)
+               [:success "Login success!" user-id]))
+        (is (= @!calls
+               ["Login success!"]))
+        (is (-> user-socket s/closed? not))))))
+;; TODO: Copy-paste of connect-auth-immutant - abstract this?
 
 
 ;; (run-tests)
