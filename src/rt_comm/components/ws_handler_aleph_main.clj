@@ -1,5 +1,5 @@
 (ns rt-comm.components.ws-handler-aleph-main
-  (:require [rt-comm.auth] 
+  (:require [rt-comm.connect-auth :refer [connect-process auth-process]] 
 
             [com.stuartsierra.component :as component]
 
@@ -77,6 +77,5 @@
     (assoc component :ws-handler nil #_(make-handler ws-conns event-queue)))
 
   (stop [component] component))
-
 
 
