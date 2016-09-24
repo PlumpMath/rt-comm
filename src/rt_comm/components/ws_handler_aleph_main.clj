@@ -14,28 +14,28 @@
             [taoensso.timbre :refer [debug info error spy]]
             ))
 
-;;
-;; (def ws-client-incoming-actor 
-;;   "ws-client-incoming-actor"
-;;   (sfn ws-client-incoming-actor [ev-queue]
-;;        (loop [aa 123]
-;;
-;;          (receive
-;;            [:append! new-events] (do
-;;                                    (println "eins")
-;;                                    (recur 123))
-;;            ))))
-;;
-;; (defn init-ws-user! [user-id user-socket ws-conns ev-queue]
-;;   (let [incoming-socket-source (s/->source user-socket) 
-;;         outgoing-socket-sink   (s/->sink user-socket) 
-;;         incoming-actor (spawn ,,,)
-;;         outgoing-actor nil]
-;;
-;;     (swap! ws-conns conj {:user-id        user-id
-;;                           :socket         user-socket
-;;                           :incoming-actor incoming-actor
-;;                           :outgoing-actor nil})))
+
+(def ws-client-incoming-actor 
+  "ws-client-incoming-actor"
+  (sfn ws-client-incoming-actor [ev-queue]
+       (loop [aa 123]
+
+         (receive
+           [:append! new-events] (do
+                                   (println "eins")
+                                   (recur 123))
+           ))))
+
+(defn init-ws-user! [user-id user-socket ws-conns ev-queue]
+  (let [incoming-socket-source (s/->source user-socket) 
+        outgoing-socket-sink   (s/->sink user-socket) 
+        incoming-actor (spawn ,,,)
+        outgoing-actor nil]
+
+    (swap! ws-conns conj {:user-id        user-id
+                          :socket         user-socket
+                          :incoming-actor incoming-actor
+                          :outgoing-actor nil})))
 
 
 (defn make-handler [ws-conns event-queue]
@@ -49,14 +49,15 @@
           init-ws-user-args {:ws-conns      ws-conns
                              :event-queue   event-queue}]
 
-      (d/future (some-> auth-ws-user-args 
-                        (connect-process 200) ;; wait for connection
-                        (auth-process s/put! s/close! 200) ;; returns augmented init-ws-user-args or nil
-                        (merge init-ws-user-args)
-                        #_init-ws-user!)))))
+      (fiber (some-> auth-ws-user-args 
+                     (connect-process 200) ;; wait for connection
+                     (auth-process s/put! s/close! 200) ;; returns augmented init-ws-user-args or nil
+                     (merge init-ws-user-args)
+                     init-ws-user!)))))
 
 ;; TEST CODE: manual
 ;; (do
+;;
 ;; (def on-open-user-socket (d/deferred))
 ;; (def auth-ws-user-args {:on-open-user-socket on-open-user-socket
 ;;                         :server :aleph})  
@@ -65,7 +66,7 @@
 ;; (def close (fn [ch] (swap! calls conj "closed!")))
 ;; (def user-socket (s/stream))
 ;;
-;; (def fib-rt (d/future (some-> auth-ws-user-args 
+;; (def fib-rt (fiber (some-> auth-ws-user-args 
 ;;                               (connect-process 4000) 
 ;;                               (auth-process send! close 4000))))
 ;; )
@@ -73,6 +74,13 @@
 ;; (deliver on-open-user-socket user-socket)
 ;; (future (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
 ;; (deref fib-rt)
+;;
+;; (def ch1 (s/stream))
+;; (def fu1 (fiber (some-> {:user-socket ch1}  
+;;                     (rt-comm.connect-auth/check-auth-from-chan-aleph  5000))))
+;; (s/put! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; pass in the auth command
+;; (deref fu1)
+
 
 
 ;; TODO: use (d/on-realized) to intit actor in main thread?!

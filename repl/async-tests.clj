@@ -31,6 +31,85 @@
 (maketag)
 
 
+
+
+
+(deref d1)
+
+(defn aw-d [d cb]
+  (cb @d))
+
+(defn aw-d [d cb]
+  (d/on-realized d cb cb))
+
+(defn aw [p cb]
+  (await (fn [v cb]
+           ())))
+
+(defn p-deref [p] (await #(% @p)))
+
+(defsfn deref* [p] (await (fn [d cb]
+                          (d/on-realized d cb cb))
+                        p))
+
+(defn deref* [d] 
+  "Deref the given manifold.deferred (using a callback), just
+  blocking the current fiber, not the current thread."
+  (pl/await (fn [df cb]
+             (d/on-realized df cb cb))
+           d))
+
+(def deref2 
+  (sfn deref2 [d]
+       (await (fn [p cb]
+                (d/on-realized p cb cb))
+              d)))
+
+(defsfn deref3 [d]
+  (pl/await (fn [p cb]
+           (d/on-realized p cb cb))
+         d))
+
+(def d1 (d/deferred))
+(type d1)
+(def r1 (fiber (await #(d/on-realized %1 %2 %2) d1)))
+
+(def r1 (fiber (await aw-d d1)))
+(def r1 (fiber (deref* d1)))
+(def r1 (fiber (deref3 d1)))
+
+
+(def r1 (fiber (some-> d1 cf1)))
+
+
+(d/success! d1 :aa)
+
+(deref r1)
+
+(defn cf1 [d2] 
+  (-> d2 ;; Wait for first message/auth-message!
+      cf2
+      ))
+
+(defn cf2 [d3] 
+  (-> d3 ;; Wait for first message/auth-message!
+      deref3
+      ))
+
+
+(def d1 (d/deferred))
+(def fu1 (fiber (cf1 d1)))
+(d/success! d1 :eins)
+(deref fu1)
+
+
+
+
+(def @r1 (fiber (await f1 2)))
+
+(defn f1 [x cb]
+  (cb x))
+
 ;; (let [x '(1 2)]
 ;;   (match [x]
 ;;     [([1] :seq)] :a0

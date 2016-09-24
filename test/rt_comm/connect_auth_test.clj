@@ -15,7 +15,8 @@
                                           check-auth-from-chan-immut 
                                           check-auth-from-chan-aleph
                                           auth-process
-                                          connect-process]]))
+                                          connect-process-immut
+                                          connect-process-aleph]]))
 
 (deftest auth
   (testing "check-authentification" 
@@ -61,7 +62,7 @@
                            (swap! !calls conj "closed!")))
         ;; TESTS THIS CODE:
         fib-rt (fiber (some-> auth-ws-user-args 
-                              (connect-process 200) 
+                              (connect-process-immut 200) 
                               (auth-process send! close 200)))]
     (sleep wait-conn)
     (deliver on-open-user-socket user-socket)
@@ -79,7 +80,7 @@
                            (swap! !calls conj "closed!")))
         ;; TESTS THIS CODE:
         fib-rt (d/future (some-> auth-ws-user-args 
-                                 (connect-process 200) 
+                                 (connect-process-aleph 200) 
                                  (auth-process send! close 200)))]
     (sleep wait-conn)
     (deliver on-open-user-socket user-socket)

@@ -38,19 +38,40 @@
          :else                  [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
 
 
+;; (defn deref* [d cb] 
+;;   "Async fn: Waits for d to resolve then calls
+;;   cb with it's result val."
+;;   (d/on-realized d cb cb))
+
+;; (defsfn deref* [d] 
+;;   "Deref the given manifold.deferred (using a callback), merely
+;;   blocking the current fiber, not the current thread."
+;;   (if (= (type d) manifold.deferred.Deferred) 
+;;     (p/await (fn [d cb]
+;;                (d/on-realized d cb cb))
+;;              d)
+;;     (deref d)))
+
+(defn deref* [d] 
+  "Deref the given manifold.deferred (using a callback), merely
+  blocking the current fiber, not the current thread."
+  (p/await (fn [d cb]
+             (d/on-realized d cb cb))
+           d))
+
 (defn check-auth-from-chan-aleph [{:keys [user-socket] :as m} timeout] 
   "Produce [:auth-outcome 'message' user-id] after receiving msg in :user-socket
   Expects manifold stream in m :user-socket, adds :auth-result to m."
   (-> (s/take! user-socket) ;; Wait for first message/auth-message!
       (d/timeout! timeout :timed-out) ;; Connection and auth must be competed within timeout
       (d/catch (fn [e] :conn-error))
-      deref
+      deref*
       check-authentification
       (->> (assoc m :auth-result))))
 
 ;; TEST-CODE:
 ;; (def ch1 (s/stream))
-;; (def fu1 (future (check-auth-from-chan-aleph {:user-socket ch1} 5000)))
+;; (def fu1 (fiber (check-auth-from-chan-aleph {:user-socket ch1} 5000)))
 ;; (s/put! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; pass in the auth command
 ;; (deref fu1)
 
@@ -64,8 +85,8 @@
 
 ;; TEST-CODE:
 ;; (def ch1 (channel))
-;; (def fu1 (future (check-auth-from-chan-immut {:ch-incoming ch1} 500)))
-;; (snd ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; pass in the auth command
+;; (def fu1 (fiber (check-auth-from-chan-immut {:ch-incoming ch1} 4000)))
+;; (future (snd ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]})) ;; pass in the auth command
 ;; (deref fu1)
 
 
@@ -76,7 +97,7 @@
             [[_        user-msg]]         (assoc m :auth-success false :user-msg user-msg)))
 
 (defn send-user-msg! [m send-fn]
-  (send-fn (:user-socket m) (:user-msg m))
+  (send-fn (:user-socket m) (:user-msg m)) ;; send-fn is async/non-blocking/fire and forget. TODO: could evaluate options/on-success async outcome
   m)
 
 (defn log-auth-success! [m] 
@@ -95,14 +116,13 @@
   "Wait for auth cmd, add user-id and send success msg or
   disconnect and return nil."
   (-> auth-args 
-      (as-> m (case (:server m) 
+      (as-> m (case (:server m)  ;; blocking
                 :immutant (check-auth-from-chan-immut m timeout)
                 :aleph    (check-auth-from-chan-aleph m timeout))) 
-      auth-success-args
+      auth-success-args ;; non-blocking ..->
       (send-user-msg! send-fn)
       log-auth-success!
       (close-or-pass! close-fn)))
-
 
 ;; TEST-CODE
 ;; (def ch1 (channel))
@@ -113,6 +133,7 @@
 ;;                     )))
 ;; (snd ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]})
 
+
 (defn timeout! [p timeout v]
   "Deliver v to p after timeout. Returns p."
   (fiber (do (sleep timeout) (deliver p v)))
@@ -120,14 +141,15 @@
 
 
 (defn connect-process [{:keys [on-open-user-socket] :as m} timeout]
-  "Assoc :user-socket from connection promise [or deferred!]
-  within timeout or return nil."
-  (-> on-open-user-socket
-      (timeout! timeout nil)
-      ;; (d/chain dec #(/ 1 %)) ;; TEST CODE: Raise error
-      ;; (d/catch (fn [e] (error "Ws connection error:" e) nil)) ;; swallow potential Aleph error, return nil
-      deref
-      (when (assoc m :user-socket @on-open-user-socket))))
+  "Assoc :user-socket from connection promise [or deferred]
+  within timeout or return nil"
+  (let [user-socket (-> on-open-user-socket
+                        (timeout! timeout nil) ;; starts another fiber that will pause and deliver after timeout
+                        ;; (d/chain dec #(/ 1 %)) ;; TEST CODE: Raise error
+                        ;; (d/catch (fn [e] (error "Ws connection error:" e) nil)) ;; swallow potential Aleph error, return nil
+                        deref)]
+    (when user-socket 
+      (assoc m :user-socket user-socket))))
 
 ;; TEST-CODE
 ;; (def p1 (p/promise))

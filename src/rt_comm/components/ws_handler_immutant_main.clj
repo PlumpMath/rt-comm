@@ -60,27 +60,27 @@
       )))
 
 ;; TEST CODE: manual
-;; (do
-;; (def ch (channel))
-;; (def on-open-user-socket (p/promise))
-;; (def auth-ws-user-args {:ch-incoming          ch
-;;                         :on-open-user-socket  on-open-user-socket
-;;                         :server :immutant})  
-;;
-;; (def calls (atom []))
-;; (def send! (fn [ch msg] (swap! calls conj msg)))
-;; (def close (fn [ch] (swap! calls conj "closed!")))
-;; (def user-socket (channel))
-;;
-;; (def fib-rt (future (some-> auth-ws-user-args 
-;;                            (connect-process 4000) 
-;;                            (auth-process send! close 4000))))
-;; )
-;;
-;; (p/closed? user-socket)
-;; (deliver on-open-user-socket user-socket)
-;; (future (snd ch {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
-;; (deref fib-rt)
+(do
+(def ch (channel))
+(def on-open-user-socket (p/promise))
+(def auth-ws-user-args {:ch-incoming          ch
+                        :on-open-user-socket  on-open-user-socket
+                        :server :immutant})  
+
+(def calls (atom []))
+(def send! (fn [ch msg] (swap! calls conj msg)))
+(def close (fn [ch] (swap! calls conj "closed!")))
+(def user-socket (channel))
+
+(def fib-rt (future (some-> auth-ws-user-args 
+                           (connect-process 4000) 
+                           (auth-process send! close 4000))))
+)
+
+(p/closed? user-socket)
+(deliver on-open-user-socket user-socket)
+(future (snd ch {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
+(deref fib-rt)
 
 ;; TEST CODE: combined
 ;; (let [ch (channel)
