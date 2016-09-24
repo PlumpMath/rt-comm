@@ -38,28 +38,16 @@
          :else                  [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
 
 
-;; (defn deref* [d cb] 
-;;   "Async fn: Waits for d to resolve then calls
-;;   cb with it's result val."
-;;   (d/on-realized d cb cb))
-
-;; (defsfn deref* [d] 
-;;   "Deref the given manifold.deferred (using a callback), merely
-;;   blocking the current fiber, not the current thread."
-;;   (if (= (type d) manifold.deferred.Deferred) 
-;;     (p/await (fn [d cb]
-;;                (d/on-realized d cb cb))
-;;              d)
-;;     (deref d)))
-
-(defn deref* [d] 
+(defsfn deref* [d] 
   "Deref the given manifold.deferred (using a callback), merely
   blocking the current fiber, not the current thread."
-  (p/await (fn [d cb]
-             (d/on-realized d cb cb))
-           d))
+  (if (= (type d) manifold.deferred.Deferred) 
+    (p/await (fn [d cb]
+               (d/on-realized d cb cb))
+             d)
+    (deref d)))
 
-(defn check-auth-from-chan-aleph [{:keys [user-socket] :as m} timeout] 
+(defsfn check-auth-from-chan-aleph [{:keys [user-socket] :as m} timeout] 
   "Produce [:auth-outcome 'message' user-id] after receiving msg in :user-socket
   Expects manifold stream in m :user-socket, adds :auth-result to m."
   (-> (s/take! user-socket) ;; Wait for first message/auth-message!
@@ -75,7 +63,7 @@
 ;; (s/put! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; pass in the auth command
 ;; (deref fu1)
 
-(defn check-auth-from-chan-immut [{:keys [ch-incoming] :as m} timeout] 
+(defsfn check-auth-from-chan-immut [{:keys [ch-incoming] :as m} timeout] 
   "Produce [:auth-outcome 'message' user-id] after receiving msg on ch.
   Expects :ch-incoming in m, adds :auth-result to m."
   (-> (rcv ch-incoming timeout :ms) ;; Wait for first message/auth-message!
@@ -112,7 +100,7 @@
   m)
 
 
-(defn auth-process [auth-args send-fn close-fn timeout]
+(defsfn auth-process [auth-args send-fn close-fn timeout]
   "Wait for auth cmd, add user-id and send success msg or
   disconnect and return nil."
   (-> auth-args 
@@ -120,7 +108,7 @@
                 :immutant (check-auth-from-chan-immut m timeout)
                 :aleph    (check-auth-from-chan-aleph m timeout))) 
       auth-success-args ;; non-blocking ..->
-      (send-user-msg! send-fn)
+      (send-user-msg! send-fn) 
       log-auth-success!
       (close-or-pass! close-fn)))
 
@@ -140,14 +128,14 @@
   p)
 
 
-(defn connect-process [{:keys [on-open-user-socket] :as m} timeout]
+(defsfn connect-process [{:keys [on-open-user-socket] :as m} timeout]
   "Assoc :user-socket from connection promise [or deferred]
   within timeout or return nil"
   (let [user-socket (-> on-open-user-socket
                         (timeout! timeout nil) ;; starts another fiber that will pause and deliver after timeout
                         ;; (d/chain dec #(/ 1 %)) ;; TEST CODE: Raise error
                         ;; (d/catch (fn [e] (error "Ws connection error:" e) nil)) ;; swallow potential Aleph error, return nil
-                        deref)]
+                        deref*)]
     (when user-socket 
       (assoc m :user-socket user-socket))))
 

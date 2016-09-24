@@ -74,16 +74,8 @@
 ;; (deliver on-open-user-socket user-socket)
 ;; (future (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
 ;; (deref fib-rt)
-;;
-;; (def ch1 (s/stream))
-;; (def fu1 (fiber (some-> {:user-socket ch1}  
-;;                     (rt-comm.connect-auth/check-auth-from-chan-aleph  5000))))
-;; (s/put! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; pass in the auth command
-;; (deref fu1)
 
 
-
-;; TODO: use (d/on-realized) to intit actor in main thread?!
 
 (defrecord Ws-Handler-Aleph-main [ws-conns event-queue ws-handler]
   component/Lifecycle

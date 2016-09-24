@@ -15,8 +15,8 @@
                                           check-auth-from-chan-immut 
                                           check-auth-from-chan-aleph
                                           auth-process
-                                          connect-process-immut
-                                          connect-process-aleph]]))
+                                          connect-process
+                                          connect-process]]))
 
 (deftest auth
   (testing "check-authentification" 
@@ -28,7 +28,7 @@
   (testing "check-auth-from-chan immutant" 
     (let [do-auth-immut (fn [cmd wait]
                           (let [ch (channel)
-                                fu (future (check-auth-from-chan-immut {:ch-incoming ch} 20))] ;; Start the auth process
+                                fu (fiber (check-auth-from-chan-immut {:ch-incoming ch} 20))] ;; Start the auth process
                             (sleep wait)
                             (future (snd ch cmd)) ;; Send first/auth message 
                             (:auth-result @fu)))]
@@ -40,7 +40,7 @@
   (testing "check-auth-from-chan aleph" 
     (let [do-auth-aleph (fn [cmd wait]
                           (let [ch (s/stream)
-                                fu (future (check-auth-from-chan-aleph {:user-socket ch} 20))] ;; Start the auth process
+                                fu (fiber (check-auth-from-chan-aleph {:user-socket ch} 20))] ;; Start the auth process
                             (sleep wait)
                             (future (s/put! ch cmd))
                             (:auth-result @fu)))]  ;; Send first/auth message
@@ -62,7 +62,7 @@
                            (swap! !calls conj "closed!")))
         ;; TESTS THIS CODE:
         fib-rt (fiber (some-> auth-ws-user-args 
-                              (connect-process-immut 200) 
+                              (connect-process 200) 
                               (auth-process send! close 200)))]
     (sleep wait-conn)
     (deliver on-open-user-socket user-socket)
@@ -79,9 +79,9 @@
         close (fn [ch] (do (s/close! ch) 
                            (swap! !calls conj "closed!")))
         ;; TESTS THIS CODE:
-        fib-rt (d/future (some-> auth-ws-user-args 
-                                 (connect-process-aleph 200) 
-                                 (auth-process send! close 200)))]
+        fib-rt (fiber (some-> auth-ws-user-args 
+                              (connect-process 200) 
+                              (auth-process send! close 200)))]
     (sleep wait-conn)
     (deliver on-open-user-socket user-socket)
     (sleep wait-auth)
