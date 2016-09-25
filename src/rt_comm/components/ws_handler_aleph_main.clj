@@ -26,16 +26,30 @@
                                    (recur 123))
            ))))
 
-(defn init-ws-user! [user-id user-socket ws-conns ev-queue]
-  (let [incoming-socket-source (s/->source user-socket) 
-        outgoing-socket-sink   (s/->sink user-socket) 
+
+;; {;:on-open-user-socket << << stream:  >> >>, 
+;;  ;:server :aleph, 
+;;  :user-socket << stream:  >>, 
+;;  ;:auth-result [:success "Login success!" "pete"], 
+;;  ;:auth-success true, 
+;;  ;:user-msg "Login success!", 
+;;  :user-id "pete"}
+;;
+;; {:ws-conns    ws-conns
+;;  :event-queue event-queue}
+
+
+(defn init-ws-user! [m]
+  (let [incoming-socket-source (s/->source (:user-socket m)) 
+        outgoing-socket-sink   (s/->sink   (:user-socket m)) 
+
         incoming-actor (spawn ,,,)
         outgoing-actor nil]
 
-    (swap! ws-conns conj {:user-id        user-id
-                          :socket         user-socket
-                          :incoming-actor incoming-actor
-                          :outgoing-actor nil})))
+    (swap! (:ws-conns m) conj {:user-id        (:user-id m)
+                               :socket         (:user-socket m) 
+                               :incoming-actor incoming-actor
+                               :outgoing-actor outgoing-actor})))
 
 
 (defn make-handler [ws-conns event-queue]
@@ -50,8 +64,10 @@
                              :event-queue   event-queue}]
 
       (fiber (some-> auth-ws-user-args 
-                     (connect-process 200) ;; wait for connection
-                     (auth-process s/put! s/close! 200) ;; returns augmented init-ws-user-args or nil
+                     (connect-process 200) ;; wait for connection, assoc user-socket
+                     (auth-process s/put! s/close! 200) ;; returns auth-ws-user-args with assoced user-id or nil
+
+                     (select-keys [:user-id :user-socket])
                      (merge init-ws-user-args)
                      init-ws-user!)))))
 
@@ -74,6 +90,14 @@
 ;; (deliver on-open-user-socket user-socket)
 ;; (future (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
 ;; (deref fib-rt)
+;; ;; =>
+;; {:on-open-user-socket << << stream:  >> >>, 
+;;  :server :aleph, 
+;;  :user-socket << stream:  >>, 
+;;  :auth-result [:success "Login success!" "pete"], 
+;;  :auth-success true, 
+;;  :user-msg "Login success!", 
+;;  :user-id "pete"}
 
 
 

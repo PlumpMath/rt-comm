@@ -13,18 +13,34 @@
             [taoensso.timbre :refer [debug info error spy]]
             ))
 
+;; {:ch-incoming #object[co.paralleluniverse.strands.channels.TransferChannel 0x55217f49 "co.paralleluniverse.strands.channels.TransferChannel@55217f49"], 
+;;  ;:on-open-user-socket #object[co.paralleluniverse.pulsar.core$promise$reify__20356 0x2f532e57 {:status :ready, 
+;;                                                                                                :val #object[co.paralleluniverse.strands.channels.TransferChannel 0x534a7258 "co.paralleluniverse.strands.channels.TransferChannel@534a7258"]}], 
+;;  ;:server :immutant, 
+;;  :user-socket #object[co.paralleluniverse.strands.channels.TransferChannel 0x534a7258 "co.paralleluniverse.strands.channels.TransferChannel@534a7258"], 
+;;  ;:auth-result [:success "Login success!" "pete"], 
+;;  ;:auth-success true, 
+;;  ;:user-msg "Login success!", 
+;;  :user-id "pete"}
 ;;
-;; (defn init-ws-user! [user-id user-socket ws-conns ev-queue]
-;;   (let [incoming-socket-source (s/->source user-socket) 
-;;         outgoing-socket-sink   (s/->sink user-socket) 
-;;         incoming-actor (spawn ,,,)
-;;         outgoing-actor nil]
-;;
-;;     (swap! ws-conns conj {:user-id        user-id
-;;                           :socket         user-socket
-;;                           :incoming-actor incoming-actor
-;;                           :outgoing-actor nil})))
-;;
+;; {:on-close-msg  on-close-msg
+;;  :on-error-err  on-error-err
+;;  :ws-conns      ws-conns
+;;  :event-queue   event-queue}
+
+
+(defn init-ws-user! [m]
+  (let [incoming-socket-source (:ch-incoming m) 
+        outgoing-socket-sink   (:user-socket m)
+
+        incoming-actor (spawn ,,,)
+        outgoing-actor nil]
+
+    (swap! (:ws-conns m) conj {:user-id        (:user-id m)
+                               :socket         (:user-socket m) 
+                               :incoming-actor incoming-actor
+                               :outgoing-actor outgoing-actor})))
+
 
 
 ;; -------------------------------------------------------------------------------
@@ -52,10 +68,12 @@
                      :on-message (fn [_ msg] (snd ch-incoming msg))} ;; Feed all incoming msgs into buffered dropping channel - will never block 
           ]
       (fiber (some-> auth-ws-user-args 
-                     (connect-process 200) ;; wait for connection
+                     (connect-process 200) ;; wait for connection and assoc user-socket
                      (auth-process async/send! async/close 200) ;; returns augmented init-ws-user-args or nil
+
+                     (select-keys [:user-id :user-socket :ch-incoming])
                      (merge init-ws-user-args)
-                     #_init-ws-user!))
+                     init-ws-user!))
       (async/as-channel request immut-cbs) ;; Does not block. Returns ring response. Could use user-socket in response :body 
       )))
 
@@ -80,6 +98,16 @@
 ;; (deliver on-open-user-socket user-socket)
 ;; (future (snd ch {:cmd [:auth {:user-id "pete" :pw "abc"}]}))
 ;; (deref fib-rt)
+;; =>
+;; {:ch-incoming #object[co.paralleluniverse.strands.channels.TransferChannel 0x55217f49 "co.paralleluniverse.strands.channels.TransferChannel@55217f49"], 
+;;  :on-open-user-socket #object[co.paralleluniverse.pulsar.core$promise$reify__20356 0x2f532e57 {:status :ready, 
+;;                                                                                                :val #object[co.paralleluniverse.strands.channels.TransferChannel 0x534a7258 "co.paralleluniverse.strands.channels.TransferChannel@534a7258"]}], 
+;;  :server :immutant, 
+;;  :user-socket #object[co.paralleluniverse.strands.channels.TransferChannel 0x534a7258 "co.paralleluniverse.strands.channels.TransferChannel@534a7258"], 
+;;  :auth-result [:success "Login success!" "pete"], 
+;;  :auth-success true, 
+;;  :user-msg "Login success!", 
+;;  :user-id "pete"}
 
 
 (defrecord Ws-Handler-Immutant-main [ws-conns event-queue ws-handler]

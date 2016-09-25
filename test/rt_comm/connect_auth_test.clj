@@ -95,7 +95,7 @@
       (let [!calls (atom [])
             user-socket (channel)
             user-id "pete"
-            ret (do-conn-auth-immut 210 100 user-socket user-id !calls)]
+            ret (do-conn-auth-immut 250 100 user-socket user-id !calls)]
         (is (nil? ret) "yealds nil")
         (is (empty? @!calls) "sends no msgs to client")))
 
@@ -103,7 +103,7 @@
       (let [!calls (atom [])
             user-socket (channel)
             user-id "pete"
-            ret (do-conn-auth-immut 150 210 user-socket user-id !calls)]
+            ret (do-conn-auth-immut 150 250 user-socket user-id !calls)]
         (is (= (-> ret :auth-success)
                false))
         (is (= (-> ret :auth-result first)
@@ -116,7 +116,7 @@
       (let [!calls (atom [])
             user-socket (channel)
             user-id "non-user"
-            ret (do-conn-auth-immut 190 190 user-socket user-id !calls)]
+            ret (do-conn-auth-immut 150 150 user-socket user-id !calls)]
         (is (= (-> ret :auth-success)
                false))
         (is (= (-> ret :auth-result first)
@@ -129,7 +129,7 @@
       (let [!calls (atom [])
             user-socket (channel)
             user-id "pete"
-            ret (do-conn-auth-immut 190 190 user-socket user-id !calls)]
+            ret (do-conn-auth-immut 150 150 user-socket user-id !calls)]
         (is (= (-> ret :auth-success)
                true))
         (is (= (-> ret :auth-result)
@@ -145,7 +145,7 @@
       (let [!calls (atom [])
             user-socket (s/stream)
             user-id "pete"
-            ret (do-conn-auth-aleph 210 100 user-socket user-id !calls)]
+            ret (do-conn-auth-aleph 250 100 user-socket user-id !calls)]
         (is (nil? ret) "yealds nil")
         (is (empty? @!calls) "sends no msgs to client")))
 
@@ -153,7 +153,7 @@
       (let [!calls (atom [])
             user-socket (s/stream)
             user-id "pete"
-            ret (do-conn-auth-aleph 150 210 user-socket user-id !calls)]
+            ret (do-conn-auth-aleph 150 250 user-socket user-id !calls)]
         (is (= (-> ret :auth-success)
                false))
         (is (= (-> ret :auth-result first)
@@ -166,7 +166,7 @@
       (let [!calls (atom [])
             user-socket (s/stream)
             user-id "non-user"
-            ret (do-conn-auth-aleph 190 190 user-socket user-id !calls)]
+            ret (do-conn-auth-aleph 150 150 user-socket user-id !calls)]
         (is (= (-> ret :auth-success)
                false))
         (is (= (-> ret :auth-result first)
@@ -179,7 +179,7 @@
       (let [!calls (atom [])
             user-socket (s/stream)
             user-id "pete"
-            ret (do-conn-auth-aleph 190 190 user-socket user-id !calls)]
+            ret (do-conn-auth-aleph 150 150 user-socket user-id !calls)]
         (is (= (-> ret :auth-success)
                true))
         (is (= (-> ret :auth-result)

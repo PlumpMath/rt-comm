@@ -50,10 +50,10 @@
 (defsfn check-auth-from-chan-aleph [{:keys [user-socket] :as m} timeout] 
   "Produce [:auth-outcome 'message' user-id] after receiving msg in :user-socket
   Expects manifold stream in m :user-socket, adds :auth-result to m."
-  (-> (s/take! user-socket) ;; Wait for first message/auth-message!
-      (d/timeout! timeout :timed-out) ;; Connection and auth must be competed within timeout
+  (-> (s/take! user-socket) ;; Wait for first message/auth-message! ; does not pause here - returns deferred immediately
+      (d/timeout! timeout :timed-out) ;; Auth msg must be received within timeout
       (d/catch (fn [e] :conn-error))
-      deref*
+      deref* ;; pause fiber to optain value from deferred
       check-authentification
       (->> (assoc m :auth-result))))
 
@@ -66,7 +66,7 @@
 (defsfn check-auth-from-chan-immut [{:keys [ch-incoming] :as m} timeout] 
   "Produce [:auth-outcome 'message' user-id] after receiving msg on ch.
   Expects :ch-incoming in m, adds :auth-result to m."
-  (-> (rcv ch-incoming timeout :ms) ;; Wait for first message/auth-message!
+  (-> (rcv ch-incoming timeout :ms) ;; Wait for first message/auth-message! ; pauses the fiber, returns value
       (valp some? :timed-out)  ;; nil -> :timed-out
       check-authentification
       (->> (assoc m :auth-result))))
@@ -87,6 +87,15 @@
 (defn send-user-msg! [m send-fn]
   (send-fn (:user-socket m) (:user-msg m)) ;; send-fn is async/non-blocking/fire and forget. TODO: could evaluate options/on-success async outcome
   m)
+
+(defn bl-send-user-msg! [send-fn {:keys [user-socket user-msg] :as m} cb]
+  (let [cb-s (fn [_] (-> (assoc m :send-user-success true) cb)) 
+        cb-e (fn [e] (-> (assoc m :send-user-success false :send-user-error e) cb))] 
+    (case (:server m)
+      :immutant (send-fn user-socket user-msg {:on-success cb-s
+                                               :on-error cb-e}) 
+      :aleph    (-> (send-fn user-socket user-msg)
+                    (d/on-realized cb-s cb-e)))))
 
 (defn log-auth-success! [m] 
   (if (:auth-success m)
@@ -109,6 +118,7 @@
                 :aleph    (check-auth-from-chan-aleph m timeout))) 
       auth-success-args ;; non-blocking ..->
       (send-user-msg! send-fn) 
+      ;; (->> (p/await bl-send-user-msg! send-fn))  ;; TODO: test this!
       log-auth-success!
       (close-or-pass! close-fn)))
 
