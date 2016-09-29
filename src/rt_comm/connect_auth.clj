@@ -113,11 +113,11 @@
   "Wait for auth cmd, add user-id and send success msg or
   disconnect and return nil."
   (-> auth-args 
-      (as-> m (case (:server m)  ;; blocking
-                :immutant (check-auth-from-chan-immut m timeout)
-                :aleph    (check-auth-from-chan-aleph m timeout))) 
-      auth-success-args ;; non-blocking ..->
-      (send-user-msg! send-fn) 
+      (as-> m (case (:server m)
+                :immutant (check-auth-from-chan-immut m timeout)   ;; pausing fiber 
+                :aleph    (check-auth-from-chan-aleph m timeout))) ;; pausing fiber
+      auth-success-args
+      (send-user-msg! send-fn) ;; non-blocking
       ;; (->> (p/await bl-send-user-msg! send-fn))  ;; TODO: test this!
       log-auth-success!
       (close-or-pass! close-fn)))

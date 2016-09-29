@@ -158,15 +158,16 @@
 
          (receive
            ;; broadcast to pending clients and append to queue
-           [:append! new-events] (let [evts-idx (->> (latest-index queue) inc 
-                                                     (add-index new-events))] 
-                                   ;; send right to pending clients and ..
-                                   (doseq [client pend-reqs]
-                                     (! client [:deliver-new evts-idx]))
+           [:append! new-events] (do (<<< "New events:" new-events)  
+                                     (let [evts-idx (->> (latest-index queue) inc 
+                                                         (add-index new-events))] 
+                                       ;; send right to pending clients and ..
+                                       (doseq [client pend-reqs]
+                                         (! client [:deliver-new evts-idx]))
 
-                                   ;; append to queue
-                                   (->> (into-buffer queue max-size evts-idx)
-                                        (recur [])))
+                                       ;; append to queue
+                                       (->> (into-buffer queue max-size evts-idx)
+                                            (recur []))))
 
            ;; reply with new events immediately or conj to pending 
            [:req-from-idx client req-idx] (do (<<< ":req-from-idx " (.getName client) req-idx) 

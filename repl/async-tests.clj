@@ -5,7 +5,7 @@
 
   '[clojure.core.match :refer [match]]
 
-  '[co.paralleluniverse.pulsar.core :as pl :refer [rcv sfn defsfn snd join fiber spawn-fiber sleep]]
+  '[co.paralleluniverse.pulsar.core :as p :refer [rcv try-rcv sfn defsfn snd join fiber spawn-fiber sleep]]
   '[co.paralleluniverse.pulsar.async :as pa]
   '[co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                               register! unregister! self]]
@@ -28,10 +28,240 @@
         '[co.paralleluniverse.strands Strand]
         '[co.paralleluniverse.fibers Fiber])
 
-(maketag)
+
+;; core.async
+(defn batch-rcv-ev-colls [ch]
+  "Poll available event collections from ch and batch
+  them into one event collection. Non-blocking."
+  (go-loop [v []
+            x (a/poll! ch)]
+           (if-not x
+             v
+             (recur (into v x)
+                    (a/poll! ch)))))
+
+;; TEST CODE:
+(def c1 (a/chan 6))
+(<!! (batch-rcv-ev-colls c1))
+(>!! c1 [2 3 4])
+(>!! c1 [5 6 7])
+
+
+;; Manifold
+(defn batch-rcv-ev-colls [in-stream]
+  "Try-take! available event collections from in-steam and batch
+  them into one event collection. Non-blocking."
+  (d/loop [v []]
+    (d/chain (s/try-take! in-stream 0)
+             #(if-not % 
+                v 
+                (d/recur (into v %))))))
+
+
+;; TEST CODE:
+(def s1 (s/stream 6))
+(batch-rcv-ev-colls s1)
+(s/put! s1 [2 3 4])
+(s/put! s1 [5 6 7])
+
+
+;; Pulsar  
+(defn batch-rcv-ev-colls [ch]
+  "Rcv available event collections from ch and batch
+  them into one event collection. Non-blocking."
+  (loop [v []
+         x (p/try-rcv ch)]
+    (if-not x
+      v
+      (recur (into v x)
+             (p/try-rcv ch)))))
+
+;; TEST CODE:
+(def c1 (p/channel 6))
+(batch-rcv-ev-colls c1)
+(snd c1 [2 3 4])
+(snd c1 [5 6 7])
+(rcv c1)
 
 
 
+
+
+(def ev-queue (-> system :event-queue :events-server))
+
+(! ev-queue [:append! [{:aa 23}]])
+
+
+(defsfn incoming-ws-user-process []
+  (loop [v []]
+
+     
+
+    (when (> 5 (count v))
+      (recur (conj v (rcv c1))))))
+
+
+
+
+(def fi1 (spawn-fiber (fn [] (loop [v []]
+                               (info v)
+                               (when (> 5 (count v))
+                                 (recur (conj v (rcv c1))))))))
+
+
+(def fi1 (fiber (loop [v []]
+                  (info v)
+                  (when (> 5 (count v))
+                    (recur (conj v (rcv c1)))))))
+
+
+(defn batch-awail-ev-colls [ch]
+  "Rcv available event collections from ch and batch
+  them into one event collection. Non-blocking."
+  (loop [v []
+         x (p/try-rcv ch)]
+    (if-not x
+      v
+      (recur (into v x)
+             (p/try-rcv ch)))))
+
+(defsfn batch-rcv-ev-colls [ch]
+  "Rcv available event collections from ch and batch
+  them into one event collection. Blocks/waits for first msg."
+  (loop [v []
+         x (p/rcv ch)] ;; pause for first new msgs-coll
+    (if-not x
+      v
+      (recur (into v x)
+             (p/try-rcv ch))))) ;; consume other msgs-colls if available
+
+
+
+(def c1 (p/channel 6))
+
+(rcv-avail c1)
+
+(snd c1 [2 3 4])
+(snd c1 [5 6 7])
+
+(rcv c1)
+
+
+
+(def @ee (spawn-fiber #(loop [n (int 0)
+                             res []]
+                        (if (< n 10)
+                          (do 
+                            ;; (rcv cc n)
+                            (recur (inc n) (conj res (rcv cc))))
+                          res))))
+(count [])
+(info :ab)
+
+(dotimes [i 3]
+  (snd cc i))
+(snd c1 65)
+
+
+
+(def evts [{:time 10 :loc [14 10]} 
+           {:time 11 :loc [9 14]} 
+           {:time 12 :loc [8 11]}])
+
+(defn assoc-user-id [user-id m]
+  (assoc m :user-id user-id))
+
+(partial assoc-user-id "pete")
+
+(defn assoc-user-id [user-id]
+  (fn [m] (assoc m :user-id user-id)))
+
+(assoc-user-id "pete")
+
+(map (assoc-user-id "pete") evts)
+
+
+(->> evts
+     s/->source
+     (s/map (assoc-user-id "pete"))
+     s/stream->seq)
+
+
+(def c1 (p/channel 3))
+
+
+(def fi1 (spawn-fiber (fn [] (loop [v []]
+                               ;; (info (conj v (rcv c1))) 
+                               (when (> 3 (count v)) 
+                                 (recur (conj v (rcv c1))))))))
+
+(def fi2 (sfn []
+              (loop [v []]
+                (info (conj v (rcv c1))) 
+                (when (> 3 (count v)) 
+                  (recur (conj v (rcv c1)))))))
+
+(fi2)
+
+(let [ch (p/channel 10 :displace)
+      task (sfn [] 
+                (let [ch (p/ticker-consumer ch)]
+                  (loop [prev -1]
+                    (let [m (rcv ch)]
+                      (when m
+                        (assert (> m prev)) ;(fact m => (gt? prev))
+                        (recur (long m)))))))
+      f1 (spawn-fiber task)
+      t1 (p/spawn-thread task)
+      f2 (spawn-fiber task)
+      t2 (p/spawn-thread task)
+      f3 (spawn-fiber task)
+      t3 (p/spawn-thread task)
+      f4 (spawn-fiber task)
+      t4 (p/spawn-thread task)]
+  (sleep 100)
+  (dotimes [i 1000]
+    (sleep 1)
+    (snd ch i))
+  (p/close! ch)
+  (join (list f1 t1 f2 t2 f3 t3 f4 t4))
+  )
+
+(let [ch (p/channel)
+            fiber (spawn-fiber
+                    (fn []
+                      (let [m1 (rcv ch)
+                            m2 (rcv ch)
+                            m3 (rcv ch)
+                            m4 (rcv ch)]
+                        (list m1 m2 m3 m4))))]
+        (sleep 20)
+        (snd ch "m1")
+        (sleep 20)
+        (snd ch "m2")
+        (sleep 20)
+        (snd ch "m3")
+        (p/close! ch)
+        (snd ch "m4")
+        (join fiber))
+
+
+(dotimes [i 3]
+  (snd c1 i))
+
+
+
+(snd c1 10)
+(rcv c1)
+
+
+
+(when (try-rcv in-chan))
+conj all vecs into one vec
+
+s/try-take!
+
+wie gross in ist in buffer und wann [[berlaufefn?]]
 
 
 (deref d1)
@@ -174,6 +404,7 @@
 ;;     [(2 :<< dec)] :two
 ;;     :else :no-match))
 
+(maketag)
 
 
 

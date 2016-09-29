@@ -29,17 +29,17 @@
 ;;  :event-queue   event-queue}
 
 
-(defn init-ws-user! [m]
-  (let [incoming-socket-source (:ch-incoming m) 
-        outgoing-socket-sink   (:user-socket m)
+(defn init-ws-user! [{:keys [user-socket user-id ch-incoming ws-conns event-queue]}]
+  (let [incoming-socket-source ch-incoming 
+        outgoing-socket-sink   user-socket
 
         incoming-actor (spawn ,,,)
         outgoing-actor nil]
 
-    (swap! (:ws-conns m) conj {:user-id        (:user-id m)
-                               :socket         (:user-socket m) 
-                               :incoming-actor incoming-actor
-                               :outgoing-actor outgoing-actor})))
+    (swap! ws-conns conj {:user-id        user-id
+                          :socket         user-socket 
+                          :incoming-actor incoming-actor
+                          :outgoing-actor outgoing-actor})))
 
 
 

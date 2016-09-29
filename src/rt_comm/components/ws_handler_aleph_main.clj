@@ -1,5 +1,6 @@
 (ns rt-comm.components.ws-handler-aleph-main
   (:require [rt-comm.connect-auth :refer [connect-process auth-process]] 
+            [rt-comm.incoming-ws-user :as incoming-ws-user]
 
             [com.stuartsierra.component :as component]
 
@@ -10,46 +11,7 @@
             [co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                                        register! unregister! self]]
 
-            [clojure.core.match :refer [match]]
-            [taoensso.timbre :refer [debug info error spy]]
-            ))
-
-
-(def ws-client-incoming-actor 
-  "ws-client-incoming-actor"
-  (sfn ws-client-incoming-actor [ev-queue]
-       (loop [aa 123]
-
-         (receive
-           [:append! new-events] (do
-                                   (println "eins")
-                                   (recur 123))
-           ))))
-
-
-;; {;:on-open-user-socket << << stream:  >> >>, 
-;;  ;:server :aleph, 
-;;  :user-socket << stream:  >>, 
-;;  ;:auth-result [:success "Login success!" "pete"], 
-;;  ;:auth-success true, 
-;;  ;:user-msg "Login success!", 
-;;  :user-id "pete"}
-;;
-;; {:ws-conns    ws-conns
-;;  :event-queue event-queue}
-
-
-(defn init-ws-user! [m]
-  (let [incoming-socket-source (s/->source (:user-socket m)) 
-        outgoing-socket-sink   (s/->sink   (:user-socket m)) 
-
-        incoming-actor (spawn ,,,)
-        outgoing-actor nil]
-
-    (swap! (:ws-conns m) conj {:user-id        (:user-id m)
-                               :socket         (:user-socket m) 
-                               :incoming-actor incoming-actor
-                               :outgoing-actor outgoing-actor})))
+            [taoensso.timbre :refer [debug info error spy]]))
 
 
 (defn make-handler [ws-conns event-queue]
@@ -63,13 +25,15 @@
           init-ws-user-args {:ws-conns      ws-conns
                              :event-queue   event-queue}]
 
+      ;; run connect- and auth processes in fiber, then init incoming-user-process
       (fiber (some-> auth-ws-user-args 
                      (connect-process 200) ;; wait for connection, assoc user-socket
                      (auth-process s/put! s/close! 200) ;; returns auth-ws-user-args with assoced user-id or nil
 
                      (select-keys [:user-id :user-socket])
                      (merge init-ws-user-args)
-                     init-ws-user!)))))
+                     incoming-ws-user/init-ws-user!)))))
+
 
 ;; TEST CODE: manual
 ;; (do
@@ -98,8 +62,6 @@
 ;;  :auth-success true, 
 ;;  :user-msg "Login success!", 
 ;;  :user-id "pete"}
-
-
 
 (defrecord Ws-Handler-Aleph-main [ws-conns event-queue ws-handler]
   component/Lifecycle

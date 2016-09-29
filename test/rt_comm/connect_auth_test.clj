@@ -189,7 +189,7 @@
         (is (-> user-socket s/closed? not))))))
 ;; TODO: Copy-paste of connect-auth-immutant - abstract this?
 
-
+;; TODO: 2 tests fail just on first run!
 ;; (run-tests)
 
 
