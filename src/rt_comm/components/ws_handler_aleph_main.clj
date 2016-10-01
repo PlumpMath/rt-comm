@@ -1,6 +1,8 @@
 (ns rt-comm.components.ws-handler-aleph-main
   (:require [rt-comm.connect-auth :refer [connect-process auth-process]] 
-            [rt-comm.incoming-ws-user :as incoming-ws-user]
+            [rt-comm.incoming-ws-user-pulsar :as incoming-ws-user-p]
+            [rt-comm.incoming-ws-user-coreasync :as incoming-ws-user-c]
+            [rt-comm.incoming-ws-user-manifold :as incoming-ws-user-m]
 
             [com.stuartsierra.component :as component]
 
@@ -12,6 +14,47 @@
                                                        register! unregister! self]]
 
             [taoensso.timbre :refer [debug info error spy]]))
+
+
+
+;; (defn init-ws-user! [{:keys [user-socket user-id ws-conns event-queue]}]
+;;
+;;   (let [incoming-stream (incoming-ws-user/incoming-stream-aleph (s/->source user-socket)) 
+;;
+;;         incoming-actor (spawn incoming-ws-user-actor 
+;;                               incoming-stream 
+;;                               event-queue
+;;                               {:batch-sample-intv 0
+;;                                :user-id user-id})
+;;
+;;         outgoing-socket-sink   (s/->sink   user-socket) 
+;;
+;;         outgoing-actor nil]
+;;
+;;     (swap! ws-conns conj {:user-id        user-id
+;;                           :socket         user-socket ;; debug only?!
+;;                           :incoming-actor incoming-actor
+;;                           :outgoing-actor outgoing-actor})))
+
+
+;; TEST CODE:
+;; (do 
+;; (require '[dev :refer [system]])
+;; (def ev-queue (-> system :event-queue :events-server))
+;; ;; (def ev-queue [])
+;; ;; (def ws-conns (-> system :ws-conns-main))
+;; (def ws-conns (atom []))
+;; (def user-socket (s/stream))
+;; (fiber (init-ws-user! {:user-socket user-socket :user-id "pete"
+;;                        :ws-conns ws-conns :event-queue ev-queue}))
+;; (def in-ac (:incoming-actor (first @ws-conns)))
+;; true
+;; )
+;;
+;; (! in-ac [:append! [{:eins 11} {:zwei 22}]])
+
+
+
 
 
 (defn make-handler [ws-conns event-queue]
@@ -32,7 +75,7 @@
 
                      (select-keys [:user-id :user-socket])
                      (merge init-ws-user-args)
-                     incoming-ws-user/init-ws-user!)))))
+                     #_init-ws-user!)))))
 
 
 ;; TEST CODE: manual
