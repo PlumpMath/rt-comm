@@ -27,24 +27,24 @@
 ;; (into-buffer [1 2 3] 4 [5 6 7])
 
 (defn latest-index [events] 
-  "Latest :index val in event-queue data, or -1 if not found."
-  (-> (-> events last :index)
+  "Latest :idx val in event-queue data, or -1 if not found."
+  (-> (-> events last :idx)
       (valp integer? -1)))
 
 (defn add-index [events start-idx]
-  "Add an :index column to a vector of maps."
+  "Add an :idx column to a vector of maps."
   (into [] (map-indexed 
              (fn [idx el]
-               (assoc el :index (+ idx start-idx)))
+               (assoc el :idx (+ idx start-idx)))
              events)))
 
 ;; -------------------------------------------------------------------------------
 
 (defn load-events [file-path]
-  [{:index 3 :time 336 :location [12 33]} 
-   {:index 4 :time 350 :location [16 43]}
-   {:index 5 :time 353 :location [18 40]}
-   {:index 6 :time 361 :location [21 36]}
+  [{:idx 3 :time 336 :location [12 33]} 
+   {:idx 4 :time 350 :location [16 43]}
+   {:idx 5 :time 353 :location [18 40]}
+   {:idx 6 :time 361 :location [21 36]}
    ])
 
 (defn save-events! [events path]
@@ -119,7 +119,7 @@
 ;; (<>! :c3 :next)
 
 ;; Server will then reply at one point and send a vec of events
-#_(<>! :c3 [:deliver-new [{:index 14} {:index 15}]])
+#_(<>! :c3 [:deliver-new [{:idx 14} {:idx 15}]])
 
 ;; Debug server state
 (some-> (whereis :events-server 20 :ms) 
@@ -127,13 +127,13 @@
         #_:cur-idx #_:pend-reqs :queue
         )
 ;; ==>
-[{:index  5, :time 353, :location [18 40]}
- {:index  6, :time 361, :location [21 36]}
- {:client :abc, :message [:join-room :chat4], :index 7}
- {:client :cde, :message [:post "This is my text"], :index 8}
- {:time   836, :location [14 43], :index 9}
- {:time   853, :location [18 44], :index 10}
- {:time   861, :location [24 46], :index 11}]
+[{:idx  5, :time 353, :location [18 40]}
+ {:idx  6, :time 361, :location [21 36]}
+ {:client :abc, :message [:join-room :chat4], :idx 7}
+ {:client :cde, :message [:post "This is my text"], :idx 8}
+ {:time   836, :location [14 43], :idx 9}
+ {:time   853, :location [18 44], :idx 10}
+ {:time   861, :location [24 46], :idx 11}]
 
 ;; Mimic a producer - append new messages
 (<>! :events-server [:append! [{:client :abc :message [:join-room :chat4]} 
@@ -144,7 +144,7 @@
 
 
 ;; A message is simply a map. No keys are required at this point. 
-;; The :index key will be generated automatically. The only purpose of :index 
+;; The :idx key will be generated automatically. The only purpose of :idx 
 ;; is to maintain the overall number of events after restarts and for debugging (should see continious index-numbers)
 
 (def server-actor 
@@ -184,9 +184,19 @@
            :debug-state (do (debug-log-state queue pend-reqs)
                             (recur pend-reqs queue))
 
-           [:save-data file-path] (save-events! queue file-path)
+           [:deliver-state! prm] (do (deliver prm queue)
+                                     (recur pend-reqs queue))
 
-           :reset (recur [] []) 
+           [:get-queue client] (do (! client [:rcv queue])
+                                   (recur pend-reqs queue))
+
+           [:get-q-reset client] (do (! client [:rcv queue])
+                                   (recur [] []))
+
+           [:save-data file-path] (do (save-events! queue file-path) 
+                                      (recur pend-reqs queue))
+
+           :reset! (recur [] []) 
            :shutdown! (do (<<< "Shutting down event-queue-server ..")
                           ;; send message to pending request? to all clients? which order to shut down actors?
                           (debug-log-state queue pend-reqs)) 

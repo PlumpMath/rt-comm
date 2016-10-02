@@ -1,9 +1,12 @@
 (ns rt-comm.incoming-ws-user-pulsar
   (:require [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]]
+            [rt-comm.components.event-queue :as eq] ;; testing only!
 
-            [co.paralleluniverse.pulsar.core :as p :refer [rcv fiber sfn defsfn snd join spawn-fiber sleep]]
-            [co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
+            [co.paralleluniverse.pulsar.core :as p :refer [rcv fiber sfn defsfn snd select sel join spawn-fiber sleep]]
+            [co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox mailbox-of whereis 
                                                        register! unregister! self]]
+
+            [clojure.core.match :refer [match]]
 
             [taoensso.timbre :refer [debug info error spy]]))
 
@@ -25,103 +28,76 @@
 ;; (snd c1 [5 6 7])
 
 
-(defsfn take-all-or-wait [socket]
-  "Batch-receive all available event-colls and return instantly 
-  or wait for next single event coll."
-  (if-some [new-msgs (batch-rcv-ev-colls socket)]
-    new-msgs
-    (p/rcv socket)))
+(defn rcv-rest [first-msg in-ch]
+  "Rcv available msgs and append to first-msg vec. Never blocks."
+  (->> (batch-rcv-ev-colls in-ch) ;; rcv other msgs or nil
+       (into first-msg))) ;; into one vec of maps 
 
-;; TEST CODE:
-;; (def c1 (p/channel 6))
-;; (def fb (fiber (take-all-or-wait c1)))
-;; (deref fb 1000 :timeout)
-;; (snd c1 [2 3 4])
-;; (snd c1 [5 6 7])
-;; (deref fb 1000 :timeout)
+(defn process-msgs [msgs recip-chs]
+  "Augment and filter msgs."
+  (-> msgs 
+      (add-to-col-in-table :recip-chans recip-chs)))
 
-
-(defsfn process-incoming! [in-ch recip-chs event-queue]
-  "Consume, process and send msgs to event-queue."
-  (-> (take-all-or-wait in-ch)
-      (add-to-col-in-table :recip-chans recip-chs)
-      (->> (conj [:append!])
-           (! event-queue))))
-
-;; (defsfn process-incoming! [in-ch recip-chs event-queue]
-;;   "Consume, process and send msgs to event-queue."
-;;   (-> (take-all-or-wait in-ch)
-;;       (as-> vm  ;; Conditional threading
-;;         (if recip-chs 
-;;           (add-to-col-in-table vm :recip-chans recip-chs) vm)
-;;         (! event-queue [:append! vm]))))
-
-;; TEST CODE:
-;; (def c1 (p/channel 6))
-;; (snd c1 [{:aa 1 :recip-chans [:a :c]} {:aa 2}])
-;; (def a (spawn #(receive)))
-;; (def r (fiber (process-incoming! c1 #{:b :c} a)))
-;; (join a)
-;; (def a (spawn #(receive)))
-;; (def r (fiber (process-incoming! c1 nil a)))
-;; (snd c1 [{:aa 1} {:aa 2}])
-;; (join a)
+(defn commit! [msgs event-queue]
+  "Commit msgs to event-queue."
+  (! event-queue [:append! msgs]))
 
 
 (def incoming-ws-user-actor
-  "Consumes msgs from incm-socket-source and :append!s them to event-queue.
+  "Consumes msgs from in-ch, applies state based transforms 
+  and :append!s msgs to event-queue.
   Features: 
-  - batch incm msgs 
-  - validate msg cmds 
-  - :pause-rcv-overflow
-  - augment msgs with receive-chan ids
-  - :shutdown" 
-  (sfn [incm-socket-source event-queue {:keys [batch-sample-intv]}]
+  - augment msgs based on settable state
+  - :pause-rcv-overflow and :resume-rcv
+  - batch incoming msgs using batch-sample-intv" 
+  (sfn [in-ch event-queue {:keys [batch-sample-intv]}]
 
-       (loop [recip-chs nil]
+       (loop [recip-chs nil
+              prc-cnt 0]
+         (sleep batch-sample-intv) ;; wait for msgs to buffer in in-ch
 
-         ;; STREAM PROCESSING:
-         ;; - receiving
-         ;; - state-based filtering, augmenting
-         ;; - forwarding
-         (process-incoming! incm-socket-source 
-                            recip-chs 
-                            event-queue)
+         (select :priority true ;; handle ctrl-cmds with priority 
+                 ;; CONTROL:
+                 ;; - receive state for processing
+                 ;; - pause/resume rcving msgs and let the windowed upstream ch overflow
+                 ;; - shutdown
+                 @mailbox ([cmd] (match cmd
+                                        [:set-fixed-recip-chs rcv-chs] (recur rcv-chs prc-cnt)  ;; TODO: expect a #{set}
+                                        :pause-rcv-overflow (receive  
+                                                              :resume-rcv (recur recip-chs prc-cnt))
+                                        [:shut-down msn] (info "Shut 2down incoming-ws-user-actor." msn)
+                                        [:debug-prc-cnt client] (do (! client [:rcv prc-cnt])
+                                                                    (recur recip-chs 0))
+                                        :else (recur recip-chs prc-cnt)))
+                 ;; STREAM PROCESSING:
+                 ;; - receiving
+                 ;; - state-based filtering, augmenting
+                 ;; - forwarding
+                 in-ch    ([first-new-msg] (do (-> (rcv-rest first-new-msg in-ch)
+                                                   (process-msgs recip-chs)
+                                                   (commit! event-queue))
+                                               (recur recip-chs (inc prc-cnt))))))))
 
-         ;; CONTROL:
-         ;; - receive state for processing
-         ;; - pause processing
-         ;; - control buffer/sample rate
-
-         ;; receive control cmds in-between msg processing
-         (receive
-           [:set-fixed-receiver-chans rcv-chs] (recur rcv-chs)  ;; TODO: expect a #{set}
-
-           ;; Pause processing incoming msgs and let the windowed socket overflow
-           :pause-rcv-overflow (receive
-                                 :resume-rcv (recur recip-chs))
-
-           [:shutdown msn] (info "Shut down incoming-ws-user-actor." msn)
-
-           :after batch-sample-intv (recur recip-chs)))))
 
 ;; TEST CODE:
-(require '[dev :refer [system]])
-(def ev-queue (-> system :event-queue :events-server))
-(! ev-queue [:append! [{:aa 23}]])
-(def c1 (p/channel 6))
-(def ie (spawn incoming-ws-user-actor 
-               c1 ev-queue
-               {:batch-sample-intv 0}))
-
-(snd c1 [{:aa 23} {:bb 23}])
-(snd c1 [{:aa 11} {:bb 38}])
-
-(! ie [:set-fixed-receiver-chans #{:ach :bch}])
-(! ie :pause-rcv-overflow)
-(! ie :resume-rcv)
-
-(info "------")
+;; (require '[dev :refer [system]])
+;; (def ev-queue (-> system :event-queue :events-server))
+;; (def ev-queue (spawn eq/server-actor [] 10))
+;; (! ev-queue [:append! [{:aa 23}]])
+;; (def c1 (p/channel 2 :displace))
+;; (def ie (spawn incoming-ws-user-actor 
+;;                c1 ev-queue
+;;                {:batch-sample-intv 0}))
+;;
+;; (snd c1 [{:aa 23} {:bb 23}])
+;; (snd c1 [{:aa 11 :recip-chans #{:cc :dd}} {:bb 38}])
+;;
+;; (! ie [:set-fixed-recip-chs #{:ach :bch}])
+;; (! ie [:set-fixed-recip-chs nil])
+;; (! ie :pause-rcv-overflow)
+;; (! ie :resume-rcv)
+;;
+;; (info "------")
 
 ;; MESSAGE FORMAT EXAMPLES
 ;; {:index      8562         ; gen by queue
