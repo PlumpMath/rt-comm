@@ -17,24 +17,31 @@
 
 
 
-;; (defn init-ws-user! [{:keys [user-socket user-id ws-conns event-queue]}]
-;;
-;;   (let [incoming-stream (incoming-ws-user/incoming-stream-aleph (s/->source user-socket)) 
-;;
-;;         incoming-actor (spawn incoming-ws-user-actor 
-;;                               incoming-stream 
-;;                               event-queue
-;;                               {:batch-sample-intv 0
-;;                                :user-id user-id})
-;;
-;;         outgoing-socket-sink   (s/->sink   user-socket) 
-;;
-;;         outgoing-actor nil]
-;;
-;;     (swap! ws-conns conj {:user-id        user-id
-;;                           :socket         user-socket ;; debug only?!
-;;                           :incoming-actor incoming-actor
-;;                           :outgoing-actor outgoing-actor})))
+#_(defn init-ws-user! [{:keys [user-socket ws-conns event-queue] :as args}]
+
+  (let [incoming-stream (incoming-ws-user-p/incoming-stream 
+                          (s/->source user-socket)
+                          (select-keys args [:user-id :allowed-actns]))
+
+        incoming-actor (spawn incoming-ws-user-p/incoming-ws-user-actor 
+                              incoming-stream
+                              event-queue 
+                              (select-keys args [:batch-sample-intv]))
+
+        incoming-actor (spawn incoming-ws-user-p/incoming-ws-user-actor 
+                              incoming-stream
+                              (partial ! event-queue)  ;; snd-event-queue function
+                              (select-keys args [:batch-sample-intv]))
+
+
+        outgoing-socket-sink   (s/->sink   user-socket) 
+
+        outgoing-actor nil]
+
+    (swap! ws-conns conj {:user-id        user-id
+                          :socket         user-socket ;; debug only?!
+                          :incoming-actor incoming-actor
+                          :outgoing-actor outgoing-actor})))
 
 
 ;; TEST CODE:
@@ -54,19 +61,13 @@
 ;; (! in-ac [:append! [{:eins 11} {:zwei 22}]])
 
 
-
-
-
-(defn make-handler [ws-conns event-queue]
+(defn make-handler [init-ws-user-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [auth-ws-user-args {:on-open-user-socket (http/websocket-connection request)
-                             :server              :aleph}  
+                             :server              :aleph}]
           ;:user-id            nil ;; Will be provided in auth-process - auth-result
           ;:user-socket        nil ;; Will be provide by @on-open-user-socket
-
-          init-ws-user-args {:ws-conns      ws-conns
-                             :event-queue   event-queue}]
 
       ;; run connect- and auth processes in fiber, then init incoming-user-process
       (fiber (some-> auth-ws-user-args 
@@ -106,11 +107,13 @@
 ;;  :user-msg "Login success!", 
 ;;  :user-id "pete"}
 
-(defrecord Ws-Handler-Aleph-main [ws-conns event-queue ws-handler]
+(defrecord Ws-Handler-Aleph-main [conf ws-conns event-queue ws-handler]
   component/Lifecycle
 
   (start [component]
-    (assoc component :ws-handler nil #_(make-handler ws-conns event-queue)))
+    (let [init-ws-user-args (merge conf {:ws-conns     ws-conns
+                                         :event-queue  event-queue})] 
+      (assoc component :ws-handler nil #_(make-handler init-ws-user-args))))
 
   (stop [component] component))
 

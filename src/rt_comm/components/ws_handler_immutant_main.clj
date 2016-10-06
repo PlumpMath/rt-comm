@@ -29,53 +29,48 @@
 ;;  :event-queue   event-queue}
 
 
-(defn init-ws-user! [{:keys [user-socket user-id ch-incoming ws-conns event-queue]}]
-  (let [incoming-socket-source ch-incoming 
-        outgoing-socket-sink   user-socket
-
-        incoming-actor (spawn ,,,)
-        outgoing-actor nil]
-
-    (swap! ws-conns conj {:user-id        user-id
-                          :socket         user-socket 
-                          :incoming-actor incoming-actor
-                          :outgoing-actor outgoing-actor})))
+;; #_(defn init-ws-user! [{:keys [user-socket user-id ch-incoming ws-conns event-queue]}]
+;;   (let [incoming-socket-source ch-incoming 
+;;         outgoing-socket-sink   user-socket
+;;
+;;         incoming-actor (spawn ,,,)
+;;         outgoing-actor nil]
+;;
+;;     (swap! ws-conns conj {:user-id        user-id
+;;                           :socket         user-socket 
+;;                           :incoming-actor incoming-actor
+;;                           :outgoing-actor outgoing-actor})))
 
 
 
 ;; -------------------------------------------------------------------------------
 
-(defn make-handler [ws-conns event-queue]
-  (fn ws-handler [request]  ;; client requests a ws connection here
-
-    (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
-          [on-open-user-socket on-close-msg on-error-err] (repeatedly 3 p/promise) 
-
-          auth-ws-user-args {:ch-incoming         ch-incoming
-                             :on-open-user-socket on-open-user-socket
-                             :server              :immutant}  
-                             ;:user-id            nil ;; Will be provided in auth-process - auth-result
-                             ;:user-socket        nil ;; Will be provide by @on-open-user-socket
-                             
-          init-ws-user-args {:on-close-msg  on-close-msg
-                             :on-error-err  on-error-err
-                             :ws-conns      ws-conns
-                             :event-queue   event-queue}
-
-          immut-cbs {:on-open    (fn [user-socket] (deliver on-open-user-socket user-socket)) 
-                     :on-close   (fn [_ ex] (deliver on-close-msg ex))
-                     :on-error   (fn [_ e]  (deliver on-error-err e))
-                     :on-message (fn [_ msg] (snd ch-incoming msg))} ;; Feed all incoming msgs into buffered dropping channel - will never block 
-          ]
-      (fiber (some-> auth-ws-user-args 
-                     (connect-process 200) ;; wait for connection and assoc user-socket
-                     (auth-process async/send! async/close 200) ;; returns augmented init-ws-user-args or nil
-
-                     (select-keys [:user-id :user-socket :ch-incoming])
-                     (merge init-ws-user-args)
-                     init-ws-user!))
-      (async/as-channel request immut-cbs) ;; Does not block. Returns ring response. Could use user-socket in response :body 
-      )))
+;; #_(defn make-handler [init-ws-user-args]
+;;   (fn ws-handler [request]  ;; client requests a ws connection here
+;;
+;;     (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
+;;           [on-open-user-socket on-close-msg on-error-err] (repeatedly 3 p/promise) 
+;;
+;;           auth-ws-user-args {:ch-incoming         ch-incoming
+;;                              :on-open-user-socket on-open-user-socket
+;;                              :server              :immutant}  
+;;           ;:user-id            nil ;; Will be provided in auth-process - auth-result
+;;           ;:user-socket        nil ;; Will be provide by @on-open-user-socket
+;;
+;;           immut-cbs {:on-open    (fn [user-socket] (deliver on-open-user-socket user-socket)) 
+;;                      :on-close   (fn [_ ex] (deliver on-close-msg ex))
+;;                      :on-error   (fn [_ e]  (deliver on-error-err e))
+;;                      :on-message (fn [_ msg] (snd ch-incoming msg))} ;; Feed all incoming msgs into buffered dropping channel - will never block 
+;;           ]
+;;       (fiber (some-> auth-ws-user-args 
+;;                      (connect-process 200) ;; wait for connection and assoc user-socket
+;;                      (auth-process async/send! async/close 200) ;; returns augmented init-ws-user-args or nil
+;;
+;;                      (select-keys [:user-id :user-socket :ch-incoming])
+;;                      (merge init-ws-user-args {:on-close-msg  on-close-msg
+;;                                                :on-error-err  on-error-err})
+;;                      #_init-ws-user!))
+;;       (async/as-channel request immut-cbs)))) ;; Does not block. Returns ring response. Could use user-socket in response :body 
 
 ;; TEST CODE: manual
 ;; (do
@@ -110,11 +105,15 @@
 ;;  :user-id "pete"}
 
 
-(defrecord Ws-Handler-Immutant-main [ws-conns event-queue ws-handler]
+(defrecord Ws-Handler-Immutant-main [conf ws-conns event-queue ws-handler]
   component/Lifecycle
 
   (start [component]
-    (assoc component :ws-handler [] #_(make-handler ws-conns event-queue)))
+    (let [init-ws-user-args (merge conf {:ws-conns     ws-conns
+                                         :event-queue  event-queue})] 
+      (assoc component :ws-handler nil #_(make-handler init-ws-user-args))))
+
+  ;; (assoc component :ws-handler nil #_(make-handler init-ws-user-args))
 
   (stop [component] component))
 

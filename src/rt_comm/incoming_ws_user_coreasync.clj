@@ -1,164 +1,177 @@
 (ns rt-comm.incoming-ws-user-coreasync
-  (:require [rt-comm.utils.utils :as utils :refer [valp fpred recent-items]]
+  (:require [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]] 
 
             [clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
-                                              <!! >!!
+                                              <!! >!! alt! pipe
                                               close! put! take! thread timeout
                                               offer! poll! promise-chan
                                               sliding-buffer]]
+            [clojure.core.match :refer [match]]
+
             [taoensso.timbre :refer [debug info error spy]])) 
+
+
+(defn batch-rcv-ev-colls [ch]
+  "Poll! available event collections from ch and batch
+  them into one event collection. Returns nil if no events were available. Non-blocking."
+  (go-loop [v []
+            x (a/poll! ch)]
+           (if-not x
+             (valp v seq)  ;; return nil if empty
+             (recur (into v x)
+                    (a/poll! ch)))))
+
+;; TEST CODE:
+;; (def c1 (a/chan 6))
+;; (<!! (batch-rcv-ev-colls c1))
+;; (>!! c1 [2 3 4])
+;; (>!! c1 [5 6 7])
+
+(defn filter-msg-keys-xf [allowed-actns]
+  "Returns a transducer that accepts only 
+  variants/msgs of allowed-keys."
+  (-> (comp (set allowed-actns) first)
+      filter))
+
+
+(defn rcv-msg-keys [in-ch & msg-keys]
+  "Returns a chan that takes from in-ch and only
+  transits variants with msg-keys."
+  (->> (chan 2 (filter-msg-keys-xf msg-keys))
+       (pipe in-ch)))
+
+
+(defn rcv-msg-keys [in-ch & msg-keys]
+  (->> (promise-chan (filter-msg-keys-xf msg-keys))
+       (pipe in-ch)))
+
+#_(defn rcv-msg-keys [in-ch & msg-keys]
+  (let [pr-ch (promise-chan (filter-msg-keys-xf msg-keys))]
+       (pipe in-ch pr-ch false)))
+
+
+
+(defn rcv-rest [first-msg in-ch]
+  "Rcv available msgs and append to first-msg vec. Never blocks."
+  (->> (batch-rcv-ev-colls in-ch) ;; rcv other msgs or nil
+       (into first-msg))) ;; into one vec of maps 
+
+(defn process-msgs [msgs recip-chs]
+  "Augment and filter msgs."
+  (-> msgs 
+      (add-to-col-in-table :recip-chans recip-chs)))
+
+(defn commit! [msgs snd-event-queue]
+  "Commit msgs to event-queue."
+  (snd-event-queue [:append! msgs]))
+
+
+(defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
+  "Consumes msgs from in-ch, applies state based transforms 
+  and :append!s msgs to event-queue.
+  Features: 
+  - augment msgs based on settable state
+  - :pause-rcv-overflow and :resume-rcv
+  - batch/throttle incoming msgs using batch-sample-intv
+  Gate into the system: Only concerned with msg-format and performance ops 
+  that require state." 
+  (go-loop [recip-chs nil
+            prc-cnt 0]
+
+           (<! (timeout batch-sample-intv)) ;; wait for msgs to buffer in in-ch
+
+           (alt!   
+             ;; CONTROL:
+             ;; - receive state for processing
+             ;; - pause/resume rcving msgs and let the windowed upstream ch overflow
+             ;; - shutdown
+             cmd-ch ([cmd] (match cmd
+                                  [:set-fixed-recip-chs rcv-chs] (recur rcv-chs prc-cnt)  ;; TODO: expect a #{set}
+
+                                  ;; :pause-rcv-overflow (do (<! (rcv-msg-keys cmd-ch :resume-rcv))
+                                  ;;                         (recur recip-chs prc-cnt)) 
+
+                                  :pause-rcv-overflow (let [res-ch (rcv-msg-keys cmd-ch :resume-rcv)]
+                                                        (<! res-ch)
+                                                        (close! res-ch)
+                                                        (recur recip-chs prc-cnt)) 
+
+                                  [:shut-down msn] (info "Shut 2down incoming-ws-user-actor." msn)
+                                  [:debug-prc-cnt prm] (do (deliver prm prc-cnt)
+                                                           (recur recip-chs 0))
+                                  :else (recur recip-chs prc-cnt)))
+             ;; STREAM PROCESSING:
+             ;; - receiving
+             ;; - state-based filtering, augmenting
+             ;; - forwarding
+             in-ch  ([first-new-msg] (do (-> (rcv-rest first-new-msg in-ch)
+                                             (process-msgs recip-chs)
+                                             (commit! snd-event-queue))
+                                         (recur recip-chs (inc prc-cnt))))
+
+             :priority true))) ;; handle ctrl-cmds with priority? 
+
+
+
+;; (defn aa [in1 in2]
+;;   (go-loop [a 0]
+;;            (alt!
+;;              in1 ([x] (match x
+;;                              0 (do (info a) 
+;;                                    (recur (inc a)))
+;;                              1 (do (info "1:" a) 
+;;                                    (recur (inc a)))
+;;                              :else "end"))
+;;              in2 ([x] (do (info "in" a) 
+;;                           (recur (inc a)))))))
+
+
+;; (def in1 (chan))
+;; (def in2 (chan))
+;; (pipe in1 in2)
 ;;
-;; (defn batch-rcv-ev-colls [ch]
-;;   "Poll! available event collections from ch and batch
-;;   them into one event collection. Returns nil if no events were available. Non-blocking."
-;;   (go-loop [v []
-;;             x (a/poll! ch)]
-;;            (if-not x
-;;              (valp v seq)  ;; return nil if empty
-;;              (recur (into v x)
-;;                     (a/poll! ch)))))
+;; ;; (aa in1 in2)
 ;;
-;; ;; TEST CODE:
-;; ;; (def c1 (a/chan 6))
-;; ;; (<!! (batch-rcv-ev-colls c1))
-;; ;; (>!! c1 [2 3 4])
-;; ;; (>!! c1 [5 6 7])
-;;
-;;
-;; (defsfn take-all-or-wait [socket]
-;;   "Batch-receive all available event-colls and return instantly 
-;;   or wait for next single event coll."
-;;   (if-some [new-msgs (batch-rcv-ev-colls socket)]
-;;     new-msgs
-;;     (p/rcv incoming-socket-source)))
-;;
-;;
-;; (defsfn process-incoming! [socket receiver-chs event-queue]
-;;   "Consume, process and send msgs to event-queue."
-;;   (-> (take-all-or-wait socket)
-;;       (augment-receiver-chans receiver-chs)
-;;       (->> (conj [:append!]) 
-;;            (! event-queue))))
-;;
-;;
-;; (def incoming-ws-user-actor 
-;;   "Consumes msgs from incm-socket-source and :append!s them to event-queue.
-;;   Features: 
-;;   - batch incm msgs 
-;;   - validate msg cmds 
-;;   - :pause-rcv-overflow
-;;   - augment msgs with receive-chan ids
-;;   - :shutdown" 
-;;   (sfn [incm-socket-source event-queue {:keys [batch-sample-intv] :as conf}]
-;;
-;;        (loop [receiver-chs []]
-;;
-;;          (process-incoming! incm-socket-source 
-;;                             receiver-chs 
-;;                             event-queue)
-;;
-;;          ;; receive control cmds in-between msg processing
-;;          (receive
-;;            [:set-fixed-receiver-chans rcv-chs] (recur rcv-chs) 
-;;
-;;            ;; Pause processing incoming msgs and let the windowed socket overflow
-;;            :pause-rcv-overflow (receive
-;;                                  :resume-rcv (recur receiver-chs))
-;;
-;;            :shutdown (info "Shut down incoming-ws-user-actor. user-id:" (:user-id conf))
-;;
-;;            :after batch-sample-intv (recur receiver-chs)))))
-;;
-;; ;; TEST CODE:
-;; ;; (require '[dev :refer [system]])
-;; ;; (def ev-queue (-> system :event-queue :events-server))
-;; ;; (! ev-queue [:append! [{:aa 23}]])
-;; ;; (def c1 (p/channel 6))
-;; ;; (def ia (spawn incoming-ws-user-actor 
-;; ;;                c1 ev-queue
-;; ;;                {:batch-sample-intv 0
-;; ;;                 :allowed-cmds [:aa :bb :post-msg :set-receiver-chans]
-;; ;;                 :user-id "pete"}))
-;; ;;
-;; ;; (snd c1 [{:aa 23} {:bb 23}])
-;; ;; (snd c1 [{:aa 11} {:bb 38}])
-;; ;; (snd c1 [{:aa 7} {:bb 57}])
-;; ;; (snd c1 [2 3 4])
-;; ;; (snd c1 [5 6 7])
-;; ;;
-;; ;; (batch-rcv-ev-colls c1)
-;; ;;
-;; ;; (info "------")
-;;
-;; ;; MESSAGE FORMAT EXAMPLES
-;; ;; {:index      8562         ; gen by queue
-;; ;;  :timestamp  "2016-0.."   ; gen by source or handler
-;; ;;  :parent     8743         ; added for derived events
-;; ;;  :user-id    "pete"       ; added for ws-connection after auth        
-;; ;;  :to-chans   [:a :c]      ; qualify recipients of messages, added and maintained by inc-actor, can be set/overwritten by client in the message
-;; ;; -> better: receiver-chans
-;; ;;  }
-;; ;;
-;; ;; :action  :auth
-;; ;; :data    {:user-id "pete" :pw "abc"}
-;; ;;
-;; ;; :action  :add-to-chans
-;; ;; -> add-receiver-chans
-;;
-;; ;; :action  :del-to-chans
-;; ;; :action  :set-to-chans
-;; ;; :data    {:chan-ids [:b]}
-;; ;;
-;; ;; :action  :add-from-chans
-;; ;; :action  :del-from-chans
-;; ;; :action  :set-from-chans
-;; ;; :data    {:chan-ids [:b]}
-;; ;;
-;; ;; :action  :post-msg
-;; ;; :data    {:text "hi everyone!"}
-;; ;;
-;; ;; :action  :loc-update
-;; ;; :data    {:loc [23 43]}
-;; ;;
-;; ;; {:cmd [:auth {:user-id "pete" :pw "abc"}]} ;; maintain system command layer?
-;; ;;
-;; ;; [{:client :abc :message [:join-room :chat4]} 
-;; ;;  {:client :cde :message [:post "This is my text"]}
-;; ;;  {:time 836, :location [14 43]}
-;; ;;  {:time 853, :location [18 44]}
-;; ;;  {:time 861, :location [24 46]}]
-;;
-;;
-;; ;; {;:on-open-user-socket << << stream:  >> >>, 
-;; ;;  ;:server :aleph, 
-;; ;;  :user-socket << stream:  >>, 
-;; ;;  ;:auth-result [:success "Login success!" "pete"], 
-;; ;;  ;:auth-success true, 
-;; ;;  ;:user-msg "Login success!", 
-;; ;;  :user-id "pete"}
-;; ;;
-;; ;; {:ws-conns    ws-conns
-;; ;;  :event-queue event-queue}
+;; (>!! in1 0)
+;; (>!! in2 2)
 ;;
 ;;
-;; (defn assoc-user-id [user-id]
-;;   (fn [m] (assoc m :user-id user-id)))
+;; (<!! in1)
+;; (<!! in2)
 ;;
-;; ;; TODO: 
-;; ;; write filter-invalid, 
-;; ;; how to get conf data here?
-;; ;; Aleph vs. Immutant adaption
-;; ;; how to close conn?
-;; ;; state based processing vs static stream pre-processing
-;; set up static pre processing
+;; (info "---")
+
+;; TEST CODE:
+;; (def ch1 (chan))
+;; (def ch2 (chan))
+;; (pipe ch1 ch2)
 ;;
+;; (def prch (rcv-msg-keys ch1 :resume-rcv))
 ;;
-;; (defn incoming-stream-aleph [user-socket user-id allowed-cmds]
-;;   (->> user-socket 
-;;        (s/filter (filter-invalid allowed-cmds)) 
-;;        (s/map    (assoc-user-id user-id))))
+;; (future (let [res-ch (rcv-msg-keys ch1 :resume-rcv)]
+;;           (info (<!! res-ch))
+;;           (close! res-ch)))
 ;;
+;; (>!! ch1 [:resume-rcv 40])
 ;;
-;; (def allowed-cmds [:aa :bb :post-msg :set-receiver-chans])
+
+;; TEST CODE:
+;; (require '[dev :refer [system]])
+;; (def ev-queue (-> system :event-queue :events-server))
+;; (def ev-queue (spawn eq/server-actor [] 10))
+;; (! ev-queue [:append! [{:aa 23}]])
+;; (def c1 (p/channel 2 :displace))
+;; (def ie (spawn incoming-ws-user-actor 
+;;                c1 ev-queue
+;;                {:batch-sample-intv 0}))
 ;;
+;; (snd c1 [{:aa 23} {:bb 23}])
+;; (snd c1 [{:aa 11 :recip-chans #{:cc :dd}} {:bb 38}])
 ;;
+;; (! ie [:set-fixed-recip-chs #{:ach :bch}])
+;; (! ie [:set-fixed-recip-chs nil])
+;; (! ie :pause-rcv-overflow)
+;; (! ie :resume-rcv)
+;;
+;; (info "------")
+

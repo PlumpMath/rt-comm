@@ -45,8 +45,8 @@
     :ws-handler-immutant-simple (->Ws-Handler-Immutant-simple nil nil) ;; clients, + handler
     :ws-handler-aleph-simple    (->Ws-Handler-Aleph-simple    nil nil) ;; clients, + handler
     ;; Websocket handler: Main example
-    :ws-handler-immutant-main   (->Ws-Handler-Immutant-main nil nil nil) ;; ws-conns-simple, event-queue, + handler
-    :ws-handler-aleph-main      (->Ws-Handler-Aleph-main    nil nil nil) ;; ws-conns-simple, event-queue, + handler
+    :ws-handler-immutant-main   (->Ws-Handler-Immutant-main (:ws-user conf) nil nil nil) ;; conf, ws-conns-main, event-queue, + handler
+    :ws-handler-aleph-main      (->Ws-Handler-Aleph-main    (:ws-user conf) nil nil nil) ;; conf, ws-conns-main, event-queue, + handler
 
     :ws-conns-simple   (atom []) 
     ;; Callbacks that put to the ws-socket connections (eigther Immutant or Aleph)

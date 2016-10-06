@@ -29,6 +29,18 @@
         '[co.paralleluniverse.fibers Fiber])
 
 
+
+((comp str +) 8 8 8)
+;; comp with functions works ** <- **
+
+(def tx-one (comp (map +) (map str)))
+;; comp with transducers works ** -> **
+
+(into [] tx-one [8 8 8])
+
+
+
+
 ;; core.async
 (defn batch-rcv-ev-colls [ch]
   "Poll available event collections from ch and batch

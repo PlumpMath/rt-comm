@@ -11,10 +11,9 @@
  :event-queue {:max-size 7
                :file-path "app-data/event-queue-data.edn"}
 
- :incoming-ws-user {:batch-sample-intv 0
-                    :allowed-cmds [:aa :bb :post-msg :set-receiver-chans]}
-
- :outgoing-ws-user {}
+ :ws-user {:incm-user {:batch-sample-intv 0
+                       :allowed-actns [:aa :bb :post-msg :set-receiver-chans]}
+           :outg-user {}}
 
  :immutant {:port 4040}
  :aleph    {:port 5050}

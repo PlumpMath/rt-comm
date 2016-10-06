@@ -140,26 +140,41 @@
 ;; ;;
 ;; ;; {:ws-conns    ws-conns
 ;; ;;  :event-queue event-queue}
+
+(defn assoc-user-id [user-id]
+  (fn [m] (assoc m :user-id user-id)))
+
+(defn filter-actns [allowed-actns]
+  (comp (set allowed-actns) :actn))
+
+
+
+(defn incoming-stream [in-ch {:keys [user-id allowed-actns]}]
+  (->> in-ch 
+       (s/filter (filter-actns allowed-actns))
+       (s/map    (assoc-user-id user-id))))
+
+
+;; (def allowed-cmds [:aa :bb :post-msg :set-receip-chans])
+;;
+;; (set allowed-cmds)
+;; (def s1 (s/stream 6))
 ;;
 ;;
-;; (defn assoc-user-id [user-id]
-;;   (fn [m] (assoc m :user-id user-id)))
+;; (def s2 (incoming-stream s1 "pete" allowed-cmds))
 ;;
-;; ;; TODO: 
-;; ;; write filter-invalid, 
-;; ;; how to get conf data here?
-;; ;; Aleph vs. Immutant adaption
-;; ;; how to close conn?
-;; ;; state based processing vs static stream pre-processing
-;; set up static pre processing
+;; (def msgs [{:aa 12 :actn :other} {:aa 14 :some 34 :actn :post-msg}])
 ;;
+;; (#(-> % :actn #{:aa :bb}) {:aa 12 :actn :bb})
+;; ((comp :actn #{:aa :bb}) {:aa 12 :actn :bb})
 ;;
-;; (defn incoming-stream-aleph [user-socket user-id allowed-cmds]
-;;   (->> user-socket 
-;;        (s/filter (filter-invalid allowed-cmds)) 
-;;        (s/map    (assoc-user-id user-id))))
+;; ((filter-invalid allowed-cmds) {:aa 12 :actn :bb})
 ;;
-;;
-;; (def allowed-cmds [:aa :bb :post-msg :set-receiver-chans])
-;;
-;;
+;; (filter (filter-invalid allowed-cmds) msgs)
+;; ({:aa 14, :some 34, :actn :post-msg})
+;; ({:aa 12, :actn :other} {:aa 14, :some 34, :actn :post-msg})
+;; ({:aa 12, :actn :other} {:aa 14, :some 34, :actn :post-msg})
+
+
+
+

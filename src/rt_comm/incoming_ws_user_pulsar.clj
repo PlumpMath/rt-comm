@@ -49,7 +49,9 @@
   Features: 
   - augment msgs based on settable state
   - :pause-rcv-overflow and :resume-rcv
-  - batch incoming msgs using batch-sample-intv" 
+  - batch/throttle incoming msgs using batch-sample-intv
+  Gate into the system: Only concerned with msg-format and performance ops 
+  that require state." 
   (sfn [in-ch event-queue {:keys [batch-sample-intv]}]
 
        (loop [recip-chs nil
@@ -149,18 +151,18 @@
 ;;  :event-queue event-queue}
 
 
-(defn assoc-user-id [user-id]
-  (fn [m] (assoc m :user-id user-id)))
-
-;; TODO: 
-;; write filter-invalid, 
-;; how to get conf data here?
-;; Aleph vs. Immutant adaption
-;; how to close conn?
-;; state based processing vs static stream pre-processing
-;; set up static pre processing
-
-
+;; (defn assoc-user-id [user-id]
+;;   (fn [m] (assoc m :user-id user-id)))
+;;
+;; ;; TODO: 
+;; ;; write filter-invalid, 
+;; ;; how to get conf data here?
+;; ;; Aleph vs. Immutant adaption
+;; ;; how to close conn?
+;; ;; state based processing vs static stream pre-processing
+;; ;; set up static pre processing
+;;
+;;
 ;; (defn incoming-stream-aleph [user-socket user-id allowed-cmds]
 ;;   (->> user-socket 
 ;;        (s/filter (filter-invalid allowed-cmds)) 
@@ -168,5 +170,8 @@
 ;;
 ;;
 ;; (def allowed-cmds [:aa :bb :post-msg :set-receiver-chans])
+;;
+;; (def s1 (s/stream 6))
+
 
 

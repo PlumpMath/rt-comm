@@ -97,7 +97,7 @@
               {:bb 38, :idx 1}
               {:aa 14, :recip-chans #{:ach :dd :bch}, :idx 2}
               {:bb 40, :recip-chans #{:ach :bch}, :idx 3}]) 
-          "Append chs after turned on.")
+          "Add chs after turned on.")
 
       (snd in-ch  [{:aa 16 :recip-chans #{:other}} 
                    {:bb 42}])
