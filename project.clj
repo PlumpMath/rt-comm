@@ -3,6 +3,7 @@
   :license {:name "MIT"}
 
   :dependencies [[org.clojure/clojure "1.8.0"]
+                 #_[org.clojure/clojure "1.9.0-alpha12"]
 
                  [com.stuartsierra/component "0.3.1"]
                  [org.clojure/core.match "0.3.0-alpha4"]

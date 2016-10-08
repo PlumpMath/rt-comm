@@ -67,7 +67,7 @@
                                         [:set-fixed-recip-chs rcv-chs] (recur rcv-chs prc-cnt)  ;; TODO: expect a #{set}
                                         :pause-rcv-overflow (receive  
                                                               :resume-rcv (recur recip-chs prc-cnt))
-                                        [:shut-down msn] (info "Shut 2down incoming-ws-user-actor." msn)
+                                        [:shut-down msn] (info "Shut down incoming-ws-user-actor." msn)
                                         [:debug-prc-cnt client] (do (! client [:rcv prc-cnt])
                                                                     (recur recip-chs 0))
                                         :else (recur recip-chs prc-cnt)))

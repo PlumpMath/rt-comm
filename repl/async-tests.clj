@@ -19,7 +19,7 @@
   '[clojure.tools.namespace.repl :as tn]
   '[clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
                                      <!! >!!
-                                     close! put! take! thread timeout
+                                     close! mult tap untap put! take! thread timeout
                                      offer! poll! promise-chan
                                      sliding-buffer]])
 
@@ -27,6 +27,40 @@
         '[co.paralleluniverse.common.util Debug]
         '[co.paralleluniverse.strands Strand]
         '[co.paralleluniverse.fibers Fiber])
+
+
+
+(def c1 (chan))
+
+(-> (mult c1) (tap (chan)))
+
+(def t1 (tap m1 c2))
+
+
+
+(defn rcv-msg-keys [ch & msg-keys] 
+  "Returns a chan that will receive the first msg with
+  a matching key."
+  (let [match? (comp (set msg-keys) first)] 
+    (go-loop [] 
+             (let [x (<! ch)] 
+               (if (match? x) x (recur))))))
+
+
+(def c1 (chan))
+
+(def res (rcv-msg-keys c1 :aa :bb))
+
+(future (info (<!! res)))
+
+(>!! c1 [:bb "eins"])
+
+
+(def g (go (<! c1)))
+
+(future (info (<!! (go (<! c1)))))
+
+
 
 
 
@@ -352,17 +386,25 @@ wie gross in ist in buffer und wann [[berlaufefn?]]
 (defn f1 [x cb]
   (cb x))
 
-;; (let [x '(1 2)]
-;;   (match [x]
-;;     [([1] :seq)] :a0
-;;     [([1 & r] :seq)] [:a1 r]
-;;     :else nil))
-
-(let [x [1 2]]
+(let [x '(1 2)]
   (match [x]
-    [[1 3]] :a0
-    [[1 & r]] [:a1 r]
+    [([1] :seq)] :a0
+    [([1 & r] :seq)] [:a1 r]
+    :else nil))
+
+(def abc #{:test :ab})
+
+(let [x :bdb #_[1 2] #_[:bb 23 43]]
+  (match x
+    [1 3] :a0
+    [abc & r] r
+    [& r] r
+    :test :a3
+    abc :a6
     :else 432))
+
+[:a1 [1 2]]
+[:a1 [2]]
 
 (let [x [:ada 2]]
   (match [x]
@@ -957,6 +999,28 @@ true
 (future (consumer chan))
 (future (producer chan))
 
+
+;; (defn filter-msg-keys-xf [allowed-actns]
+;;   "Returns a transducer that accepts only 
+;;   variants/msgs of allowed-keys."
+;;   (-> (comp (set allowed-actns) first)
+;;       filter))
+;;
+;;
+;; (defn rcv-msg-keys [in-ch & msg-keys]
+;;   "Returns a chan that takes from in-ch and only
+;;   transits variants with msg-keys."
+;;   (->> (chan 2 (filter-msg-keys-xf msg-keys))
+;;        (pipe in-ch)))
+;;
+;;
+;; (defn rcv-msg-keys [in-ch & msg-keys]
+;;   (->> (promise-chan (filter-msg-keys-xf msg-keys))
+;;        (pipe in-ch)))
+;;
+;; #_(defn rcv-msg-keys [in-ch & msg-keys]
+;;   (let [pr-ch (promise-chan (filter-msg-keys-xf msg-keys))]
+;;        (pipe in-ch pr-ch false)))
 
 
 

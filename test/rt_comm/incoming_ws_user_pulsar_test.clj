@@ -58,15 +58,16 @@
 
 (defsfn get-reset [ev-queue]
   (let [rep (spawn #(receive [:rcv x] x))]
-    (sleep 50)
+    (sleep 200)
     (! ev-queue [:get-q-reset rep])
     (join rep)))
 
 (defsfn get-process-cnt [incm-atr]
   (let [rep (spawn #(receive [:rcv x] x))]
-    (sleep 50)
+    (sleep 200)
     (! incm-atr [:debug-prc-cnt rep])
     (join rep)))
+
 
 
 (deftest incoming-ws-user-actor-test
@@ -174,17 +175,19 @@
         "rcv all 32 msgs")
 
     (let [prc-cnt @(spawn-fiber get-process-cnt incm-atr)] 
-      (is (and (> prc-cnt 14) (< prc-cnt 17)) 
-          "batch 32 messages into 15-16 processing events - see also New events debug log."))
+      (debug "process count:" prc-cnt)
+      (is (and (> prc-cnt 14) (< prc-cnt 20)) 
+          "batch 32 messages into 15-20 processing events - see also New events debug log."))
 
     ;; @(spawn-fiber get-reset ev-queue)
     ;; @(spawn-fiber get-process-cnt incm-atr)
 
     ))
 
-
+;; (incoming-ws-user-actor-test2)
 ;; (info "---")
-
+;;
 ;; (run-tests)
+
 
 

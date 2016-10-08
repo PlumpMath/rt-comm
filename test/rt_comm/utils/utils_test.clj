@@ -16,4 +16,4 @@
            [{:aa 1, :target-key #{:c :d :a}}   ;; added items here and set the coll type
             {:aa 2, :target-key #{:c :d}}])))) ;; created the whole key 
 
-
+;; (run-tests)
