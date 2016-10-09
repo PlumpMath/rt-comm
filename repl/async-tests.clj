@@ -16,6 +16,8 @@
   '[manifold.time :as t]
   '[manifold.bus :as bus]
 
+  '[rt-comm.utils.manifold-alt :refer [alt]]
+
   '[taoensso.timbre :refer [debug info error spy]]
   '[clojure.tools.namespace.repl :as tn]
   '[clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
@@ -897,6 +899,18 @@ handler should return conn-d which may yealed the "connection faild" response.
 (defn poll! [s]
   (s/description ))
 
+
+(def d1 (d/deferred))
+(def d2 (d/deferred))
+
+(def a1 (alt d1 d2))
+
+(d/success! d1 :foo)
+(d/success! d2 :eins)
+
+(identity a1)
+
+
 ;; take all and conj until block?
 
 (d/on-realized d 
@@ -922,21 +936,29 @@ handler should return conn-d which may yealed the "connection faild" response.
 (d/success! d 0)
 
 
-(def d (d/deferred)) 
+(def d1 (d/deferred)) 
+(def d2 (d/deferred)) 
+
 (def s1 (s/stream))
 
 (def d2 (d/chain d
                  (fn [m] (assoc m :msg (s/take! s1)))
                  (fn [m] (info m))))
 
-(def d2 (d/let-flow [a d
-                     b (s/take! s1)]
-          (assoc a :msg b)))
+(def d3 (d/let-flow [a d1
+                     c d2
+                     a' (do c 
+                            (update a :a inc))
+                     b (s/take! s1)
+                     ]
+          ;; c
+          (assoc a' :msg b)))
 
-(identity d2)
+(identity d3)
 
 (s/put! s1 "eins")
-(d/success! d {:a 2})
+(d/success! d1 {:a 2})
+(d/success! d2 {:a 2})
 
 
 
@@ -1037,6 +1059,19 @@ true
                 (valp v seq)  ;; return nil if empty
                 (d/recur (into v %))))))
 
+(def s1 (s/stream))
+(def s2 (s/stream))
+
+(def r1 (d/loop [n 4]
+          (d/chain (alt (s/take! s1) (s/take! s2))
+                   (fn [m] 
+                     (info m n)
+                     (when (pos? n) 
+                       (d/recur (dec n)))))))
+
+(s/put! s1 :one)
+(s/put! s2 :two)
+(s/put! s2 :three)
 
 ;; (defn filter-msg-keys-xf [allowed-actns]
 ;;   "Returns a transducer that accepts only 

@@ -4,6 +4,7 @@
 
             [manifold.stream :as s]
             [manifold.deferred :as d]
+            [manifold.time :as t]
 
             [clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
                                               <!! >!! alt! pipe
@@ -48,169 +49,55 @@
   "Commit msgs to event-queue."
   (snd-event-queue [:append! msgs]))
 
-;;
-;;
-;; (apply d/recur state)
-;;
-;; (defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
-;;   "Consumes msgs from in-ch, applies state based transforms 
-;;   and :append!s msgs to event-queue.
-;;   Features: 
-;;   - augment msgs based on settable state
-;;   - :pause-rcv-overflow and :resume-rcv
-;;   - batch/throttle incoming msgs using batch-sample-intv
-;;   Gate into the system: Only concerned with msg-format and performance ops 
-;;   that require state." 
-;;   (d/loop [st {:recip-chs nil 
-;;                :prc-cnt   0}]
-;;
-;;     (d/chain 
-;;       (t/in batch-sample-intv (constantly nil))  ;; wait for msgs to buffer in in-ch 
-;;
-;;       (s/try-take! cmd-ch 0) 
-;;
-;;       ;; pause?
-;;       (fn [cmd] (if (= cmd :pause-rcv-overflow)
-;;                   (pause-filter-keys cmd-ch :resume-rcv)
-;;                   cmd))
-;;       ;; ;; pause = could just not release that var state
-;;       ;; :pause-rcv-overflow (do (<! (pause-filter-keys cmd-ch :resume-rcv))
-;;       ;;                         [recip-chs prc-cnt]) 
-;;
-;;
-;;       ;; Include state in threading
-;;       (fn [cmd] {:cmd cmd
-;;                  :state st})
-;;
-;;       ;; Translate cmd into new state
-;;       cmd->state
-;;
-;;       (defn cmd->state [args] 
-;;         (if-not (:cmd args) args 
-;;           (match (:cmd args) 
-;;
-;;                  [:set-fixed-recip-chs rcv-chs] 
-;;                  (assoc-in args [:state :recip-chs] rcv-chs)  ;; TODO: expect a #{set}
-;;
-;;                  [:shut-down msn] 
-;;                  (assoc args :shut-down true :shut-down-msg msg)
-;;
-;;                  [:debug-prc-cnt prm] 
-;;                  (do (deliver prm prc-cnt)
-;;                      (assoc-in args [:state :prc-cnt] 0))
-;;
-;;                  :else args)))
-;;
-;;
-;;       (fn [m] 
-;;         (assoc m :msg @(s/take! stream))) 
-;;
-;;
-;;
-;;       ;; wait for and append the new message
-;;       (fn [args] 
-;;         (if-not (:shut-down args) 
-;;           (assoc args :msg @(s/take! in-ch))
-;;           args)) 
-;;
-;;
-;;       ;; get most recent cmd
-;;       (fn [args] 
-;;         (assoc args :cmd @(s/try-take! cmd-ch 0)))
-;;
-;;       cmd->state
-;;
-;;       ;; handle msg!
-;;       (fn [[state msg]] 
-;;         (when state (do (-> (rcv-rest msg in-ch)
-;;                             (process-msgs (:recip-chs state))
-;;                             (commit! snd-event-queue))
-;;                         (update state :prc-cnt inc))))
-;;
-;;       (d/let-flow [msg (if state (s/take! in-ch))
-;;
-;;                    ;; needs to:
-;;                    ;; - wait for state
-;;                    ;; - skip at nil state - not recur
-;;                    ;; - use updated state variable
-;;
-;;                    state (if-not msg [recip-chs prc-cnt]
-;;                            (do (-> (rcv-rest msg in-ch)
-;;                                    (process-msgs recip-chs)
-;;                                    (commit! snd-event-queue))
-;;                                (update state 1 inc)) 
-;;
-;;                            )
-;;
-;;                    ])
-;;
-;;       (d/let-flow [cmd   (s/try-take! cmd-ch 0)
-;;                    state (if-not cmd 
-;;                            [recip-chs prc-cnt] 
-;;                            (match cmd ;; state change can be used in the same run
-;;                                   [:set-fixed-recip-chs rcv-chs] [rcv-chs prc-cnt]  ;; TODO: expect a #{set}
-;;                                   ;; pause = could just not release that var state
-;;                                   :pause-rcv-overflow (do (<! (pause-filter-keys cmd-ch :resume-rcv))
-;;                                                           [recip-chs prc-cnt]) 
-;;                                   ;; no state - not continue
-;;                                   [:shut-down msn] (info "Shut down incoming-ws-user-actor." msn)
-;;                                   ;; do right away
-;;                                   [:debug-prc-cnt prm] (do (deliver prm prc-cnt)
-;;                                                            [recip-chs 0])
-;;                                   :else [recip-chs prc-cnt]))  
-;;
-;;
-;;                    ]
-;;         (d/let-flow [
-;;                      ;; msg   (s/try-take! in-ch 200)
-;;                      msg   (if state (s/take! in-ch))
-;;
-;;                      ;; needs to:
-;;                      ;; - wait for state
-;;                      ;; - skip at nil state - not recur
-;;                      ;; - use updated state variable
-;;
-;;                      state (if-not msg [recip-chs prc-cnt]
-;;                              (do (-> (rcv-rest msg in-ch)
-;;                                      (process-msgs recip-chs)
-;;                                      (commit! snd-event-queue))
-;;                                  (update state 1 inc)) 
-;;
-;;                              )
-;;
-;;                      ]))
-;;
-;;
-;;
-;;
-;; )
-;;
-;;
-;; (alt!   
-;;   ;; CONTROL:
-;;   ;; - receive state for processing
-;;   ;; - pause/resume rcving msgs and let the windowed upstream ch overflow
-;;   ;; - shutdown
-;;   cmd-ch ([cmd] (match cmd
-;;                        [:set-fixed-recip-chs rcv-chs] (recur rcv-chs prc-cnt)  ;; TODO: expect a #{set}
-;;
-;;                        :pause-rcv-overflow (do (<! (pause-filter-keys cmd-ch :resume-rcv))
-;;                                                (recur recip-chs prc-cnt)) 
-;;
-;;                        [:shut-down msn] (info "Shut down incoming-ws-user-actor." msn)
-;;                        [:debug-prc-cnt prm] (do (deliver prm prc-cnt)
-;;                                                 (recur recip-chs 0))
-;;                        :else (recur recip-chs prc-cnt)))
-;;   ;; STREAM PROCESSING:
-;;   ;; - receiving
-;;   ;; - state-based filtering, augmenting
-;;   ;; - forwarding
-;;   in-ch  ([first-new-msg] (do (-> (rcv-rest first-new-msg in-ch)
-;;                                   (process-msgs recip-chs)
-;;                                   (commit! snd-event-queue))
-;;                               (recur recip-chs (inc prc-cnt))))
-;;
-;;   :priority true))) ;; handle ctrl-cmds with priority
+
+(defn cmd->state [cmd state] 
+  "Match cmd and assoc into state."
+  (if-not cmd state 
+    (match cmd 
+           [:set-fixed-recip-chs rcv-chs] 
+           (assoc state :recip-chs rcv-chs)  ;; TODO: expect a #{set}
+
+           [:debug-prc-cnt prm] 
+           (do (deliver prm prc-cnt)
+               (assoc state :prc-cnt 0))
+
+           :else state)))
+
+
+(defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
+  (d/loop [state0 {:recip-chs nil 
+                   :prc-cnt   0}]
+
+    (d/chain 
+      (t/in batch-sample-intv (constantly nil))  ;; wait for msgs to buffer in in-ch 
+
+      (d/let-flow [cmd1       (s/try-take! cmd-ch 0) ;; check for cmd before msg take! ..
+                   on-resume  (when (= cmd1 :pause-rcv-overflow)
+                                (pause-filter-keys cmd-ch :resume-rcv)) ;; return deferred 
+                   shut-down1 (when (= cmd1 :shut-down)  ;; TODO [:shut-down msg]
+                                (info "Shut down incoming-ws-user-actor.")
+                                true)]
+        (when-not shut-down1  
+          on-resume ;; wait for :resume-rcv
+          (d/let-flow [msg    (s/take! in-ch)
+                       cmd2   (do msg ;; wait until msg received!
+                                  (s/try-take! cmd-ch 0)) ;; check for cmd after msg take! .. 
+
+                       shut-down2 (when (= cmd2 :shut-down)  ;; TODO [:shut-down msg]
+                                    (info "Shut down incoming-ws-user-actor.")
+                                    true)
+
+                       state1  (->> (cmd->state cmd1 state0) 
+                                    (cmd->state cmd2))
+
+                       state2  (when-not shut-down2 
+                                 (do (-> (rcv-rest msg in-ch)
+                                         (process-msgs (:recip-chs state1))
+                                         (commit! snd-event-queue))
+                                     (update state1 :prc-cnt inc)))]
+            (when-not shut-down2 
+              (d/recur state2)))))))) 
+
 
 
 ;; TEST CODE:
