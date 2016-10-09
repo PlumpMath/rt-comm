@@ -13,6 +13,7 @@
   '[aleph.http :as http]
   '[manifold.stream :as s]
   '[manifold.deferred :as d]
+  '[manifold.time :as t]
   '[manifold.bus :as bus]
 
   '[taoensso.timbre :refer [debug info error spy]]
@@ -899,19 +900,45 @@ handler should return conn-d which may yealed the "connection faild" response.
 ;; take all and conj until block?
 
 (d/on-realized d 
-             (fn [x] (println "succ!!" x))
-             (fn [x] (println "err!!" x)))
+               (fn [x] (println "succ!!" x))
+               (fn [x] (println "err!!" x)))
 
 
 (d/chain d inc inc #(println "res.." %))
 
 (d/success! d :foo)
 
-(d/chain d inc inc inc #(println "x + 3 =" %))
+
+(def r1 (t/in 2000 #(identity "ja")))
+(def r1 (t/in 2000 (constantly nil)))
+
+(identity r1)
+
+
+(def d (d/deferred))
+
+(d/chain d inc inc inc #(info "x + 3 =" %))
 
 (d/success! d 0)
 
-(def d (d/deferred))
+
+(def d (d/deferred)) 
+(def s1 (s/stream))
+
+(def d2 (d/chain d
+                 (fn [m] (assoc m :msg (s/take! s1)))
+                 (fn [m] (info m))))
+
+(def d2 (d/let-flow [a d
+                     b (s/take! s1)]
+          (assoc a :msg b)))
+
+(identity d2)
+
+(s/put! s1 "eins")
+(d/success! d {:a 2})
+
+
 
 @(d/timeout!
      (d/future (Thread/sleep 1000) :foo)
@@ -998,6 +1025,17 @@ true
 
 (future (consumer chan))
 (future (producer chan))
+
+
+;; this would not have to be async..
+(defn batch-rcv-ev-colls [in-stream]
+  "Try-take! available event collections from in-steam and batch
+  them into one event collection. Returns nil if no events were available. Non-blocking."
+  (d/loop [v []]
+    (d/chain (s/ xxtry-xxxtake! in-stream 0)
+             #(if-not % 
+                (valp v seq)  ;; return nil if empty
+                (d/recur (into v %))))))
 
 
 ;; (defn filter-msg-keys-xf [allowed-actns]
