@@ -2,7 +2,8 @@
   '[dev :refer [system db-conns reset]]
   '[rt-comm.api :refer [add-order! find-orders find-all-orders]]
   '[rt-comm.utils.logging :as logging]
-
+  '[rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]] 
+  '[rt-comm.utils.async :refer [rcv-rest pause-filter-keys]]
   '[clojure.core.match :refer [match]]
 
   '[co.paralleluniverse.pulsar.core :as p :refer [rcv try-rcv sfn defsfn snd join fiber spawn-fiber sleep]]
@@ -16,8 +17,6 @@
   '[manifold.time :as t]
   '[manifold.bus :as bus]
 
-  '[rt-comm.utils.manifold-alt :refer [alt]]
-
   '[taoensso.timbre :refer [debug info error spy]]
   '[clojure.tools.namespace.repl :as tn]
   '[clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
@@ -30,6 +29,157 @@
         '[co.paralleluniverse.common.util Debug]
         '[co.paralleluniverse.strands Strand]
         '[co.paralleluniverse.fibers Fiber])
+
+
+;; first manifold attempt
+(defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
+  (d/loop [state0 {:recip-chs nil 
+                   :prc-cnt   0}]
+
+    (d/chain 
+      (t/in batch-sample-intv (constantly nil))  ;; wait for msgs to buffer in in-ch 
+
+      (d/let-flow [cmd1       (s/try-take! cmd-ch 0) ;; check for cmd before msg take! ..
+                   on-resume  (when (= cmd1 :pause-rcv-overflow)
+                                (pause-filter-keys cmd-ch :resume-rcv)) ;; return deferred 
+                   shut-down1 (when (= cmd1 :shut-down)  ;; TODO [:shut-down msg]
+                                (info "Shut down incoming-ws-user-actor.")
+                                true)]
+        (when-not shut-down1  
+          on-resume ;; wait for :resume-rcv
+          (d/let-flow [msg    (s/take! in-ch)
+                       cmd2   (do msg ;; wait until msg received!
+                                  (s/try-take! cmd-ch 0)) ;; check for cmd after msg take! .. 
+
+                       shut-down2 (when (= cmd2 :shut-down)  ;; TODO [:shut-down msg]
+                                    (info "Shut down incoming-ws-user-actor.")
+                                    true)
+
+                       state1  (->> (cmd->state cmd1 state0) 
+                                    (cmd->state cmd2))
+
+                       state2  (when-not shut-down2 
+                                 (do (-> (rcv-rest msg in-ch)
+                                         (process-msgs (:recip-chs state1))
+                                         (commit! snd-event-queue))
+                                     (update state1 :prc-cnt inc)))]
+            (when-not shut-down2 
+              (d/recur state2)))))))) 
+
+
+(defn inc-actor [in-ch]
+  (d/loop [n 0]
+    (d/chain 
+      (-> (d/deferred) (d/timeout! 2000 nil))
+      (fn [_] (s/take! in-ch))
+      (fn [ctr-evt] (if (is-ev-coll? ctr-evt)
+                      ;; STREAM PROCESSING:
+                      ;; - receiving
+                      ;; - state-based filtering, augmenting
+                      ;; - forwarding
+                      (do (-> (rcv-rest ctr-evt in-ch)
+                              (process-msgs (:recip-chs state))
+                              (commit! snd-event-queue))
+                          (update state :prc-cnt inc))
+                      ;; CONTROL:
+                      ;; - receive state for processing
+                      ;; - set pause and shut-down flags
+                      (match ctr-evt 
+                             [:set-fixed-recip-chs rcv-chs] (assoc state :recip-chs rcv-chs)  ;; TODO: expect a #{set}
+                             [:debug-prc-cnt prm]  (do (deliver prm prc-cnt)
+                                                       (assoc state :prc-cnt 0))
+                             :pause-rcv-overflow   (assoc state :pause true) 
+                             [:shut-down msn]      (assoc state :shut-down msg) 
+                             :else state)))
+      (fn [state-n] 
+        (d/let-flow [on-resume (when (:pause state-n)
+                                 (pause-filter-keys cmd-ch :resume-rcv)) ;; return deferred 
+                     shut-down (when (:shut-down state-n)
+                                 (info "Shut down incoming-ws-user-actor." (:shut-down state-n))
+                                 true)]
+          (when-not shut-down  
+            on-resume ;; wait for :resume-rcv
+            (d/recur state-n)))))))
+
+
+
+
+(def ia (inc-actor s3))
+
+(s/put! s3 14)
+
+(nth [{:a 2}] 0)
+
+
+
+;; -------------------------------------------------------------------------------
+(def s1 (s/stream))
+(def s2 (s/stream))
+(s/connect s1 s2)
+
+(future (info "s2 received:" @(s/take! s2)))
+
+(s/put! s1 "msg 1 from s1")
+(s/put! s1 "msg dummy from s1")
+
+(future (info "s1 received:" @(s/take! s1)))
+(future (info "s2 received:" @(s/take! s2)))
+
+(s/put! s1 "msg 2 from s1")
+
+
+(info "----")
+;; -------------------------------------------------------------------------------
+
+(defn is-ev-coll? [v]
+  (some-> v (get 0) map?))
+
+(some-> [{:a 2}] (get 0) map?)
+
+(get nil 0)
+
+(get [{:a 2}] 0)
+
+(first [])
+
+(map? nil)
+
+
+;; TEST CODE:
+;; (require '[dev :refer [system]])
+;; (def ev-queue (-> system :event-queue :events-server))
+;; (def ev-queue (spawn eq/server-actor [] 10))
+;; (! ev-queue [:append! [{:aa 23}]])
+;; (def c1 (chan (sliding-buffer 4)))
+;; (def c1 (chan))
+;; (def cmd-ch (chan))
+;; (def ie (incoming-ws-user-actor 
+;;                c1 #(! ev-queue %) cmd-ch 
+;;                {:batch-sample-intv 0}))
+;;
+;; (dotimes [x 8] 
+;;   (>!! c1 [{:a x}]))
+;;
+;; (go-loop [x 0] 
+;;          (<! (timeout 0))
+;;          (>! c1 [{:a x}])
+;;          (when (< x 7) 
+;;            (recur (inc x))))
+;;
+;; (>!! c1 [{:aa 23} {:bb 23}])
+;; (>!! c1 [{:aa 11 :recip-chans #{:cc :dd}} {:bb 38}])
+;;
+;; (>!! cmd-ch [:set-fixed-recip-chs #{:ach :bch}])
+;; (>!! cmd-ch [:set-fixed-recip-chs nil])
+;; (>!! cmd-ch :pause-rcv-overflow)
+;; (>!! cmd-ch :resume-rcv)
+;;
+;; (def res (promise))
+;; (>!! cmd-ch [:debug-prc-cnt res])
+;; (deref res)
+;;
+;; (info "------")
+
 
 
 

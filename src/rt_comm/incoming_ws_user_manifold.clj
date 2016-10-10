@@ -1,6 +1,6 @@
 (ns rt-comm.incoming-ws-user-manifold
   (:require [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]] 
-            [rt-comm.utils.async :refer [rcv-rest pause-filter-keys]]
+            ;; [rt-comm.utils.async-manifold :refer [rcv-rest pause-filter-keys]]
 
             [manifold.stream :as s]
             [manifold.deferred :as d]
@@ -22,22 +22,8 @@
 
 
 
-
-(defn batch-rcv-ev-colls [in-stream]
-  "Try-take! available event collections from in-steam and batch
-  them into one event collection. Returns nil if no events were available. Non-blocking."
-  (loop [v []
-         x @(s/try-take! in-stream 0)]
-    (if-not x
-      (valp v seq)  ;; return nil if empty
-      (recur (into v x)
-             @(s/try-take! in-stream 0)))))
-
-;; TEST CODE:
-;; (def s1 (s/stream 6))
-;; (batch-rcv-ev-colls s1)
-;; (s/put! s1 [2 3 4])
-;; (s/put! s1 [5 6 7])
+(defn is-ev-coll? [v]
+  (some-> v (get 0) map?))
 
 
 (defn process-msgs [msgs recip-chs]
@@ -50,54 +36,43 @@
   (snd-event-queue [:append! msgs]))
 
 
-(defn cmd->state [cmd state] 
-  "Match cmd and assoc into state."
-  (if-not cmd state 
-    (match cmd 
-           [:set-fixed-recip-chs rcv-chs] 
-           (assoc state :recip-chs rcv-chs)  ;; TODO: expect a #{set}
-
-           [:debug-prc-cnt prm] 
-           (do (deliver prm prc-cnt)
-               (assoc state :prc-cnt 0))
-
-           :else state)))
-
-
-(defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
-  (d/loop [state0 {:recip-chs nil 
-                   :prc-cnt   0}]
-
-    (d/chain 
-      (t/in batch-sample-intv (constantly nil))  ;; wait for msgs to buffer in in-ch 
-
-      (d/let-flow [cmd1       (s/try-take! cmd-ch 0) ;; check for cmd before msg take! ..
-                   on-resume  (when (= cmd1 :pause-rcv-overflow)
-                                (pause-filter-keys cmd-ch :resume-rcv)) ;; return deferred 
-                   shut-down1 (when (= cmd1 :shut-down)  ;; TODO [:shut-down msg]
-                                (info "Shut down incoming-ws-user-actor.")
-                                true)]
-        (when-not shut-down1  
-          on-resume ;; wait for :resume-rcv
-          (d/let-flow [msg    (s/take! in-ch)
-                       cmd2   (do msg ;; wait until msg received!
-                                  (s/try-take! cmd-ch 0)) ;; check for cmd after msg take! .. 
-
-                       shut-down2 (when (= cmd2 :shut-down)  ;; TODO [:shut-down msg]
-                                    (info "Shut down incoming-ws-user-actor.")
-                                    true)
-
-                       state1  (->> (cmd->state cmd1 state0) 
-                                    (cmd->state cmd2))
-
-                       state2  (when-not shut-down2 
-                                 (do (-> (rcv-rest msg in-ch)
-                                         (process-msgs (:recip-chs state1))
-                                         (commit! snd-event-queue))
-                                     (update state1 :prc-cnt inc)))]
-            (when-not shut-down2 
-              (d/recur state2)))))))) 
-
+;;
+;; (defn incoming-ws-user-actor [evt-ch snd-ev-queue ctr-ch {:keys [batch-sample-intv]}] 
+;;   (s/connect evt-ch ctr-ch {:description "evt-ch -> ctr-ch"}) 
+;;
+;;   (d/loop [state {:recip-chs nil 
+;;                   :prc-cnt   0}]
+;;     (d/chain 
+;;       (-> (d/deferred) (d/timeout! batch-sample-intv nil)) ;; wait for msgs to buffer in evt-ch 
+;;       (fn [_] (s/take! ctr-ch)) ;; take evt-coll or ctr-cmd 
+;;       (fn [evt-ctr] (if (is-ev-coll? evt-ctr)
+;;                       ;; STREAM PROCESSING:
+;;                       ;; - receiving
+;;                       ;; - state-based filtering, augmenting
+;;                       ;; - forwarding
+;;                       (do (-> (rcv-rest evt-ctr evt-ch)
+;;                               (process-msgs (:recip-chs state))
+;;                               (commit! snd-ev-queue))
+;;                           (update state :prc-cnt inc))
+;;                       ;; CONTROL:
+;;                       ;; - receive state for processing
+;;                       ;; - set pause and shut-down flags
+;;                       (match evt-ctr 
+;;                              [:set-fixed-recip-chs rcv-chs] (assoc state :recip-chs rcv-chs)  ;; TODO: expect a #{set}
+;;                              [:debug-prc-cnt prm]  (do (deliver prm prc-cnt)
+;;                                                        (assoc state :prc-cnt 0))
+;;                              :pause-rcv-overflow   (assoc state :pause true) 
+;;                              [:shut-down msn]      (assoc state :shut-down msg) 
+;;                              :else state)))
+;;       (fn [state-n]
+;;         (d/let-flow [on-resume (when (:pause state-n)
+;;                                  (pause-filter-keys cmd-ch :resume-rcv)) ;; return deferred 
+;;                      shut-down (when (:shut-down state-n)
+;;                                  (info "Shut down incoming-ws-user-actor." (:shut-down state-n))
+;;                                  true)]
+;;           (when-not shut-down  
+;;             on-resume ;; wait for :resume-rcv
+;;             (d/recur state-n))))))) 
 
 
 ;; TEST CODE:
@@ -105,9 +80,8 @@
 ;; (def ev-queue (-> system :event-queue :events-server))
 ;; (def ev-queue (spawn eq/server-actor [] 10))
 ;; (! ev-queue [:append! [{:aa 23}]])
-;; (def c1 (chan (sliding-buffer 4)))
-;; (def c1 (chan))
-;; (def cmd-ch (chan))
+;; (def c1 (s/stream 4))
+;; (def cmd-ch (s/stream))
 ;; (def ie (incoming-ws-user-actor 
 ;;                c1 #(! ev-queue %) cmd-ch 
 ;;                {:batch-sample-intv 0}))
