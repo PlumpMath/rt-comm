@@ -1,4 +1,4 @@
-(ns rt-comm.incoming-ws-user-pulsar
+(ns rt-comm.incoming.ws-user-pulsar
   (:require [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]]
             [rt-comm.components.event-queue :as eq] ;; testing only!
 
@@ -151,27 +151,6 @@
 ;;  :event-queue event-queue}
 
 
-;; (defn assoc-user-id [user-id]
-;;   (fn [m] (assoc m :user-id user-id)))
-;;
-;; ;; TODO: 
-;; ;; write filter-invalid, 
-;; ;; how to get conf data here?
-;; ;; Aleph vs. Immutant adaption
-;; ;; how to close conn?
-;; ;; state based processing vs static stream pre-processing
-;; ;; set up static pre processing
-;;
-;;
-;; (defn incoming-stream-aleph [user-socket user-id allowed-cmds]
-;;   (->> user-socket 
-;;        (s/filter (filter-invalid allowed-cmds)) 
-;;        (s/map    (assoc-user-id user-id))))
-;;
-;;
-;; (def allowed-cmds [:aa :bb :post-msg :set-receiver-chans])
-;;
-;; (def s1 (s/stream 6))
 
 
 

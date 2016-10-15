@@ -1,10 +1,19 @@
 (ns rt-comm.components.ws-handler-aleph-main
-  (:require [rt-comm.connect-auth :refer [connect-process auth-process]] 
-            [rt-comm.incoming-ws-user-pulsar :as incoming-ws-user-p]
-            [rt-comm.incoming-ws-user-coreasync :as incoming-ws-user-c]
-            [rt-comm.incoming-ws-user-manifold :as incoming-ws-user-m]
+  (:require [rt-comm.incoming.connect-auth :refer [connect-process auth-process]] 
+            ;; [rt-comm.incoming.ws-user-pulsar    :refer [incoming-ws-user-actor]]
+            ;; [rt-comm.incoming.ws-user-coreasync :refer [incoming-ws-user-actor]]
+            [rt-comm.incoming.ws-user-manifold  :refer [incoming-ws-user-actor]]
+
+            [rt-comm.incoming.stateless-transform :refer [incoming-tx]]
+
+            [rt-comm.utils.async :as au]
 
             [com.stuartsierra.component :as component]
+            [clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
+                                              <!! >!! alt! pipe
+                                              close! put! take! thread timeout
+                                              offer! poll! promise-chan
+                                              sliding-buffer]]
 
             [aleph.http :as http]
             [manifold.stream :as s]
@@ -12,33 +21,66 @@
             [co.paralleluniverse.pulsar.core :as p :refer [rcv fiber sfn defsfn snd join spawn-fiber sleep]]
             [co.paralleluniverse.pulsar.actors :refer [maketag defactor receive-timed receive !! ! spawn mailbox-of whereis 
                                                        register! unregister! self]]
+            [co.paralleluniverse.pulsar.async :as pa]
 
             [taoensso.timbre :refer [debug info error spy]]))
 
 
 
-#_(defn init-ws-user! [{:keys [user-socket ws-conns event-queue] :as args}]
 
-  (let [incoming-stream (incoming-ws-user-p/incoming-stream 
-                          (s/->source user-socket)
-                          (select-keys args [:user-id :allowed-actns]))
+;; TODO: 
+;; how to close conn?
 
-        incoming-actor (spawn incoming-ws-user-p/incoming-ws-user-actor 
-                              incoming-stream
-                              event-queue 
-                              (select-keys args [:batch-sample-intv]))
+;; MANIFOLD
+;; (def s1 (s/stream))
+;; (def in-tx (incoming-tx {:user-id "paul"
+;;                          :allowed-actns [:aa :bb]}))
+;; (def in-st (s/transform in-tx s1))
+;;
+;; (s/consume #(info (vec %)) in-st)
+;;
+;; (s/put! s1 [{:actn :aa :idx 12} 
+;;             {:actn :aa :idx 13} 
+;;             {:idx 14}] )
+;; (s/put! s1 [{:actn :ada :idx 12} 
+;;             {:idx 14}])
+;;
 
-        incoming-actor (spawn incoming-ws-user-p/incoming-ws-user-actor 
-                              incoming-stream
-                              (partial ! event-queue)  ;; snd-event-queue function
-                              (select-keys args [:batch-sample-intv]))
 
 
-        outgoing-socket-sink   (s/->sink   user-socket) 
+(defn init-ws-user! [{:keys [user-socket ws-conns event-queue] :as args}]
+
+  (let [user-socket-in  (s/->source user-socket) 
+
+        in-tx           (-> (select-keys args [:user-id :allowed-actns])
+                            incoming-tx) 
+
+        ;; Manifold
+        ;; incom-tx-stream (s/transform in-tx user-socket-in)
+
+        ;; core.async
+        incom-tx-stream (au/transf-st-ch user-socket-in in-tx)
+
+        ;; Pulsar
+        ;; incom-tx-stream (au/transf-st-pch user-socket-in in-tx)
+
+
+        ;; Pulsar
+        ;; incoming-actor (spawn incoming-ws-user-actor 
+        ;;                       incom-tx-stream
+        ;;                       event-queue
+        ;;                       (select-keys args [:batch-sample-intv]))
+
+        ;; Manifold or core.async
+        incoming-actor (incoming-ws-user-actor
+                         incom-tx-stream
+                         #(! event-queue %)  ;; snd-event-queue function
+                         (select-keys args [:batch-sample-intv]))
+
 
         outgoing-actor nil]
 
-    (swap! ws-conns conj {:user-id        user-id
+    (swap! ws-conns conj {:user-id        (:user-id args)
                           :socket         user-socket ;; debug only?!
                           :incoming-actor incoming-actor
                           :outgoing-actor outgoing-actor})))
@@ -61,7 +103,7 @@
 ;; (! in-ac [:append! [{:eins 11} {:zwei 22}]])
 
 
-(defn make-handler [init-ws-user-args]
+#_(defn make-handler [init-ws-user-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [auth-ws-user-args {:on-open-user-socket (http/websocket-connection request)

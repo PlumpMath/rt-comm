@@ -35,32 +35,30 @@
 
 ;; TEST CODE:
 ;; (def ch (s/stream 4))
-;; (>!! ch [{:aa 1}])
-;; (>!! ch [{:aa 2}])
+;; (s/put! ch [{:aa 1}])
+;; (s/put! ch [{:aa 2}])
 ;; (rcv-rest [{:aa 0}] ch)
-;; (s/try-take! ch)
+;; (s/try-take! ch 0)
 
-;; ->>>> TODO:
-;; (defn pause-filter-keys [ch & msg-keys] 
-;;   "Returns a chan that will receive the first msg with
-;;   a matching key. Will consume all msgs from ch until a match is found."
-;;   (let [valid-k? (set msg-keys)] 
-;;     (go-loop [] 
-;;              (let [msg (<!! ch)]
-;;                (cond
-;;                  (some-> msg (valp vector?) first valid-k?) msg
-;;                  (valid-k? msg) msg
-;;                  :else (recur))))))
+
+(defn pause-filter-keys [stream & msg-keys] 
+  "Returns a deferred that will receive the first msg with
+  a matching key. Will consume all msgs from stream until a match is found."
+  (let [valid-k? (set msg-keys)] 
+    (d/loop [] 
+      (d/chain (s/take! stream)
+               (fn [msg] (cond
+                           (some-> msg (valp vector?) first valid-k?) msg ;; e.g. [:resume "info"]
+                           (valid-k? msg) msg ;; e.g. :resume
+                           :else (d/recur)))))))
 
 ;; TEST CODE:
-;; (def c1 (chan))
+;; (def c1 (s/stream))
 ;; (def res (pause-filter-keys c1 :aa :bb))
-;; (future (info (<!! res)))
-;; (>!! c1 :uu)
-;; (>!! c1 [:vv "eins"])
-;; (>!! c1 [:bb "eins"])
-;; (>!! c1 :aa)
-;; (future (>!! c1 [:bb "zwei"])) 
-;; (info (<!! c1)) ;; works again as normal!
+;; (identity res)
+;; (s/put! c1 :uu)
+;; (s/put! c1 [:vv "eins"])
+;; (s/put! c1 [:bb "eins"])
+;; (s/put! c1 :aa)
 
 

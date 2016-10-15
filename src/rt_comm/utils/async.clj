@@ -5,9 +5,29 @@
                                               <!! >!! alt! pipe
                                               sliding-buffer]]
 
+            [manifold.stream :as s]
+            [co.paralleluniverse.pulsar.async :as pa]
+
             [clojure.core.match :refer [match]]
 
             [taoensso.timbre :refer [debug info error spy]])) 
+
+
+
+(defn transform-ch [ch tx]
+  "Apply tx to ch."
+  (->> (chan 1 tx) ;; Tx only has effect if buffer > 0
+       (a/pipe ch)))
+
+(defn transf-st-ch [stream tx]
+  "Returns ch with tx, reading form Manifold stream."
+  (->> (chan 1 tx) ;; Tx only has effect if buffer > 0
+       (s/connect stream)))
+
+(defn transf-st-pch [stream tx]
+  "Returns pulsar channel with tx, reading form Manifold stream."
+  (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
+       (s/connect stream)))
 
 
 (defn batch-rcv-ev-colls [ch]
@@ -62,6 +82,10 @@
 ;; (>!! c1 :aa)
 ;; (future (>!! c1 [:bb "zwei"])) 
 ;; (info (<!! c1)) ;; works again as normal!
+
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-(ns rt-comm.connect-auth
+(ns rt-comm.incoming.connect-auth
   (:require [clojure.core.match :refer [match]]
             [manifold.stream :as s]
             [manifold.deferred :as d]

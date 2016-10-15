@@ -1,4 +1,4 @@
-(ns rt-comm.incoming-ws-user-coreasync
+(ns rt-comm.incoming.ws-user-coreasync
   (:require [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]] 
             [rt-comm.utils.async :refer [rcv-rest pause-filter-keys]]
 
@@ -24,14 +24,14 @@
   (-> msgs 
       (add-to-col-in-table :recip-chans recip-chs)))
 
-(defn commit! [msgs snd-event-queue]
+(defn commit! [msgs snd-ev-queue]
   "Commit msgs to event-queue."
-  (snd-event-queue [:append! msgs]))
+  (snd-ev-queue [:append! msgs]))
 
 
 
-(defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
-  "Consumes msgs from in-ch, applies state based transforms 
+(defn incoming-ws-user-actor [evt-ch snd-ev-queue {:keys [batch-sample-intv]}] 
+  "Starts process that consumes msgs from evt-ch, applies state based transforms 
   and :append!s msgs to event-queue.
   Features: 
   - augment msgs based on settable state
@@ -39,36 +39,39 @@
   - batch/throttle incoming msgs using batch-sample-intv
   Gate into the system: Only concerned with msg-format and performance ops 
   that require state." 
-  (go-loop [recip-chs nil
-            prc-cnt 0]
+  (let [ctr-ch (a/chan)] 
 
-           (<! (timeout batch-sample-intv)) ;; wait for msgs to buffer in in-ch
+    (go-loop [recip-chs nil
+              prc-cnt 0]
 
-           (alt!   
-             ;; CONTROL:
-             ;; - receive state for processing
-             ;; - pause/resume rcving msgs and let the windowed upstream ch overflow
-             ;; - shutdown
-             cmd-ch ([cmd] (match cmd
-                                  [:set-fixed-recip-chs rcv-chs] (recur rcv-chs prc-cnt)  ;; TODO: expect a #{set}
+             (<! (timeout batch-sample-intv)) ;; wait for msgs to buffer in evt-ch
 
-                                  :pause-rcv-overflow (do (<! (pause-filter-keys cmd-ch :resume-rcv))
-                                                          (recur recip-chs prc-cnt)) 
+             (alt!   
+               ;; CONTROL:
+               ;; - receive state for processing
+               ;; - pause/resume rcving msgs and let the windowed upstream ch overflow
+               ;; - shutdown
+               ctr-ch ([cmd] (match cmd
+                                    [:set-fixed-recip-chs rcv-chs] (recur rcv-chs prc-cnt)  ;; TODO: expect a #{set}
 
-                                  [:shut-down msn] (info "Shut down incoming-ws-user-actor." msn)
-                                  [:debug-prc-cnt prm] (do (deliver prm prc-cnt)
-                                                           (recur recip-chs 0))
-                                  :else (recur recip-chs prc-cnt)))
-             ;; STREAM PROCESSING:
-             ;; - receiving
-             ;; - state-based filtering, augmenting
-             ;; - forwarding
-             in-ch  ([first-new-msg] (do (-> (rcv-rest first-new-msg in-ch)
-                                             (process-msgs recip-chs)
-                                             (commit! snd-event-queue))
-                                         (recur recip-chs (inc prc-cnt))))
+                                    :pause-rcv-overflow (do (<! (pause-filter-keys ctr-ch :resume-rcv))
+                                                            (recur recip-chs prc-cnt)) 
 
-             :priority true))) ;; handle ctrl-cmds with priority
+                                    [:shut-down msn] (info "Shut down incoming-ws-user-actor." msn)
+                                    [:debug-prc-cnt prm] (do (deliver prm prc-cnt)
+                                                             (recur recip-chs 0))
+                                    :else (recur recip-chs prc-cnt)))
+               ;; STREAM PROCESSING:
+               ;; - receiving
+               ;; - state-based filtering, augmenting
+               ;; - forwarding
+               evt-ch  ([first-new-msg] (do (-> (rcv-rest first-new-msg evt-ch)
+                                                (process-msgs recip-chs)
+                                                (commit! snd-ev-queue))
+                                            (recur recip-chs (inc prc-cnt))))
+
+               :priority true)) ;; handle ctrl-cmds with priority 
+    ctr-ch)) 
 
 
 ;; TEST CODE:
@@ -78,9 +81,9 @@
 ;; (! ev-queue [:append! [{:aa 23}]])
 ;; (def c1 (chan (sliding-buffer 4)))
 ;; (def c1 (chan))
-;; (def cmd-ch (chan))
+;; (def ctr-ch (chan))
 ;; (def ie (incoming-ws-user-actor 
-;;                c1 #(! ev-queue %) cmd-ch 
+;;                c1 #(! ev-queue %) ctr-ch 
 ;;                {:batch-sample-intv 0}))
 ;;
 ;; (dotimes [x 8] 
@@ -95,13 +98,13 @@
 ;; (>!! c1 [{:aa 23} {:bb 23}])
 ;; (>!! c1 [{:aa 11 :recip-chans #{:cc :dd}} {:bb 38}])
 ;;
-;; (>!! cmd-ch [:set-fixed-recip-chs #{:ach :bch}])
-;; (>!! cmd-ch [:set-fixed-recip-chs nil])
-;; (>!! cmd-ch :pause-rcv-overflow)
-;; (>!! cmd-ch :resume-rcv)
+;; (>!! ctr-ch [:set-fixed-recip-chs #{:ach :bch}])
+;; (>!! ctr-ch [:set-fixed-recip-chs nil])
+;; (>!! ctr-ch :pause-rcv-overflow)
+;; (>!! ctr-ch :resume-rcv)
 ;;
 ;; (def res (promise))
-;; (>!! cmd-ch [:debug-prc-cnt res])
+;; (>!! ctr-ch [:debug-prc-cnt res])
 ;; (deref res)
 ;;
 ;; (info "------")

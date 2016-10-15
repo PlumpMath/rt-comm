@@ -1,5 +1,5 @@
 (ns rt-comm.components.ws-handler-immutant-main
-  (:require [rt-comm.connect-auth :refer [connect-process auth-process]] 
+  (:require [rt-comm.incoming.connect-auth :refer [connect-process auth-process]] 
             [rt-comm.utils.utils :refer [valp]]
 
             [com.stuartsierra.component :as component] 

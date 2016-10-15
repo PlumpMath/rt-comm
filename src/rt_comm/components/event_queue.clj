@@ -6,7 +6,7 @@
 
     [rt-comm.utils.utils :as utils :refer [valp fpred recent-items]]
 
-    [co.paralleluniverse.pulsar.core :refer [sfn defsfn snd join spawn-fiber sleep]]
+    [co.paralleluniverse.pulsar.core :refer [sfn defsfn snd join spawn-fiber fiber sleep]]
     [co.paralleluniverse.pulsar.async :as pa]
     [co.paralleluniverse.pulsar.actors :refer [receive !! ! spawn mailbox-of whereis 
                                                register! unregister! self]]
@@ -73,6 +73,13 @@
 
 ;; -------------------------------------------------------------------------------
 ;; Debugging
+
+(defn get-reset [ev-queue]
+  "Helper: Get queue from event queue and reset it."
+  @(fiber (let [rep (spawn #(receive [:rcv x] x))]
+            (sleep 200) ;; TODO: waits for other async events to finish processing??
+            (! ev-queue [:get-q-reset rep])
+            (join rep))))
 
 (def !debug-state (atom :nothing))
 

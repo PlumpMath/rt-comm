@@ -11,12 +11,12 @@
 
             [rt-comm.utils.utils :refer [valp]]
 
-            [rt-comm.connect-auth :refer [check-authentification 
-                                          check-auth-from-chan-immut 
-                                          check-auth-from-chan-aleph
-                                          auth-process
-                                          connect-process
-                                          connect-process]]))
+            [rt-comm.incoming.connect-auth :refer [check-authentification 
+                                                   check-auth-from-chan-immut 
+                                                   check-auth-from-chan-aleph
+                                                   auth-process
+                                                   connect-process
+                                                   connect-process]]))
 
 (deftest auth
   (testing "check-authentification" 

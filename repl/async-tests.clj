@@ -31,6 +31,9 @@
         '[co.paralleluniverse.fibers Fiber])
 
 
+
+
+
 ;; first manifold attempt
 (defn incoming-ws-user-actor [in-ch snd-event-queue cmd-ch {:keys [batch-sample-intv]}] 
   (d/loop [state0 {:recip-chs nil 
@@ -113,12 +116,14 @@
 
 
 ;; -------------------------------------------------------------------------------
-(def s1 (s/stream))
-(def s2 (s/stream))
-(s/connect s1 s2)
+(def s1 (s/stream)) ; evts
+(def s2 (s/stream)) ; cmds
+(s/connect s1 s2) 
 
+;; take cmds
 (future (info "s2 received:" @(s/take! s2)))
 
+;; send evt
 (s/put! s1 "msg 1 from s1")
 (s/put! s1 "msg dummy from s1")
 
@@ -1223,28 +1228,42 @@ true
 (s/put! s2 :two)
 (s/put! s2 :three)
 
-;; (defn filter-msg-keys-xf [allowed-actns]
-;;   "Returns a transducer that accepts only 
-;;   variants/msgs of allowed-keys."
-;;   (-> (comp (set allowed-actns) first)
-;;       filter))
-;;
-;;
-;; (defn rcv-msg-keys [in-ch & msg-keys]
-;;   "Returns a chan that takes from in-ch and only
-;;   transits variants with msg-keys."
-;;   (->> (chan 2 (filter-msg-keys-xf msg-keys))
-;;        (pipe in-ch)))
-;;
-;;
-;; (defn rcv-msg-keys [in-ch & msg-keys]
-;;   (->> (promise-chan (filter-msg-keys-xf msg-keys))
-;;        (pipe in-ch)))
-;;
-;; #_(defn rcv-msg-keys [in-ch & msg-keys]
-;;   (let [pr-ch (promise-chan (filter-msg-keys-xf msg-keys))]
-;;        (pipe in-ch pr-ch false)))
 
+
+(defn filter-msg-keys-xf [allowed-actns]
+  "Returns a transducer that accepts only 
+  variants/msgs of allowed-keys."
+  (-> (comp (set allowed-actns) first)
+      filter))
+
+
+(defn rcv-msg-keys [in-ch & msg-keys]
+  "Returns a chan that takes from in-ch and only
+  transits variants with msg-keys."
+  (->> (chan 2 (filter-msg-keys-xf msg-keys))
+       (pipe in-ch)))
+
+
+(defn rcv-msg-keys [in-ch & msg-keys]
+  (->> (promise-chan (filter-msg-keys-xf msg-keys))
+       (pipe in-ch)))
+
+#_(defn rcv-msg-keys [in-ch & msg-keys]
+  (let [pr-ch (promise-chan (filter-msg-keys-xf msg-keys))]
+       (pipe in-ch pr-ch false)))
+
+
+(def c1 (chan))
+(def c2 (chan))
+
+(a/pipe c1 c2)
+
+(>!! c1 :aa)
+(<!! c2)
+
+
+;; pattern: so a sideeffect to an object and return that object
+(def user-socket-in  (doto (a/chan) (->> (s/connect user-socket)))) 
 
 
 (defn websocket->async

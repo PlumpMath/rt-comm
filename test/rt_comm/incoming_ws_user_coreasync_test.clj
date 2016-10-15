@@ -18,7 +18,7 @@
             [rt-comm.components.event-queue :as event-queue]
             [rt-comm.utils.utils :refer [valp]]
 
-            [rt-comm.incoming-ws-user-coreasync :refer :all]
+            [rt-comm.incoming.ws-user-coreasync :refer :all]
 
             ))
 
