@@ -11,12 +11,7 @@
 
             [rt-comm.utils.utils :refer [valp]]
 
-            [rt-comm.incoming.connect-auth :refer [check-authentification 
-                                                   check-auth-from-chan-immut 
-                                                   check-auth-from-chan-aleph
-                                                   auth-process
-                                                   connect-process
-                                                   connect-process]]))
+            [rt-comm.incoming.connect-auth :refer :all]))
 
 (deftest auth
   (testing "check-authentification" 
@@ -56,14 +51,15 @@
         on-open-user-socket (p/promise)
         auth-ws-user-args {:ch-incoming          ch
                            :on-open-user-socket  on-open-user-socket
-                           :server :immutant}  
-        send! (fn [ch msg] (swap! !calls conj msg))
-        close (fn [ch] (do (p/close! ch) 
-                           (swap! !calls conj "closed!")))
+                           :server :immutant
+                           :server-snd-fn   (fn [ch msg] (swap! !calls conj msg))
+                           :server-close-fn (fn [ch] (do (p/close! ch) 
+                                                         (swap! !calls conj "closed!")))}  
+
         ;; TESTS THIS CODE:
         fib-rt (fiber (some-> auth-ws-user-args 
                               (connect-process 200) 
-                              (auth-process send! close 200)))]
+                              (auth-process 200)))]
     (sleep wait-conn)
     (deliver on-open-user-socket user-socket)
     (sleep wait-auth)
@@ -74,14 +70,14 @@
   "Connection and auth mimicking ws-handler code"
   (let [on-open-user-socket (d/deferred)
         auth-ws-user-args {:on-open-user-socket  on-open-user-socket
-                           :server :aleph}  
-        send! (fn [ch msg] (swap! !calls conj msg))
-        close (fn [ch] (do (s/close! ch) 
-                           (swap! !calls conj "closed!")))
+                           :server :aleph
+                           :server-snd-fn   (fn [ch msg] (swap! !calls conj msg))
+                           :server-close-fn (fn [ch] (do (s/close! ch) 
+                                                         (swap! !calls conj "closed!")))}  
         ;; TESTS THIS CODE:
         fib-rt (fiber (some-> auth-ws-user-args 
                               (connect-process 200) 
-                              (auth-process send! close 200)))]
+                              (auth-process 200)))]
     (sleep wait-conn)
     (deliver on-open-user-socket user-socket)
     (sleep wait-auth)
@@ -95,7 +91,7 @@
       (let [!calls (atom [])
             user-socket (channel)
             user-id "pete"
-            ret (do-conn-auth-immut 250 100 user-socket user-id !calls)]
+            ret (do-conn-auth-immut 350 50 user-socket user-id !calls)]
         (is (nil? ret) "yealds nil")
         (is (empty? @!calls) "sends no msgs to client")))
 

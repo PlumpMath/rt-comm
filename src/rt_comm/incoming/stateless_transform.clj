@@ -55,9 +55,9 @@
 ;;
 ;; (s/consume #(info (vec %)) in-st)
 ;;
-;; (s/put! s1 [{:actn :aa :idx 12} 
+;; (s/put! s1 [{:actn :ada :idx 12} 
 ;;             {:actn :aa :idx 13} 
-;;             {:idx 14}] )
+;;             {:idx 14}])
 ;; (s/put! s1 [{:actn :ada :idx 12} 
 ;;             {:idx 14}])
 ;;

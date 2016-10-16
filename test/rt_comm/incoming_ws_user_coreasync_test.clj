@@ -41,9 +41,8 @@
 (deftest incoming-ws-user-actor-test
   (let [in-ch    (a/chan (sliding-buffer 4))
         ev-queue (spawn event-queue/server-actor [] 100)
-        cmd-ch   (a/chan) 
         incm-atr (incoming-ws-user-actor 
-                   in-ch #(! ev-queue %) cmd-ch 
+                   in-ch #(! ev-queue %) 
                    {:batch-sample-intv 0})]
 
     (testing "Consumes msgs from in-ch - :append!s msgs to event-queue."
@@ -57,7 +56,7 @@
       (>!! in-ch  [{:aa 12 :recip-chans #{:cc :dd}} 
                    {:bb 38}])
       (sleep 10)
-      (>!! cmd-ch [:set-fixed-recip-chs #{:ach :bch}]) ;; turn fixed receip-chans on
+      (>!! incm-atr [:set-fixed-recip-chs #{:ach :bch}]) ;; turn fixed receip-chans on
       (sleep 10)
       (>!! in-ch  [{:aa 14 :recip-chans #{:bch :dd}} 
                    {:bb 40}])
@@ -72,7 +71,7 @@
       (>!! in-ch  [{:aa 16 :recip-chans #{:other}} 
                    {:bb 42}])
       (sleep 10)
-      (>!! cmd-ch [:set-fixed-recip-chs nil]) ;; turn fixed receip-chans off
+      (>!! incm-atr [:set-fixed-recip-chs nil]) ;; turn fixed receip-chans off
       (sleep 10)
       (>!! in-ch  [{:aa 18 :recip-chans #{:other}} 
                    {:bb 44}])
@@ -88,7 +87,7 @@
       (>!! in-ch [{:aa 10} {:bb 20}])
       (>!! in-ch [{:aa 11} {:bb 21}])
       (sleep 10)
-      (>!! cmd-ch :pause-rcv-overflow)
+      (>!! incm-atr :pause-rcv-overflow)
       (sleep 10)
       (>!! in-ch [{:aa 12} {:bb 20}]) ;; should be dropped by displace channel 
       (>!! in-ch [{:aa 13} {:bb 21}]) ;; should be dropped by displace channel
@@ -103,7 +102,7 @@
           "stoped processing msgs after :pause-rcv-overflow is called.")
 
       (sleep 10)
-      (>!! cmd-ch :resume-rcv)
+      (>!! incm-atr :resume-rcv)
       (sleep 10)
 
       (is (= @(spawn-fiber get-reset ev-queue) 
@@ -130,9 +129,8 @@
 (deftest incoming-ws-user-actor-test2
   (let [in-ch    (a/chan (sliding-buffer 4))
         ev-queue (spawn event-queue/server-actor [] 100)
-        cmd-ch   (a/chan) 
         incm-atr (incoming-ws-user-actor 
-                   in-ch #(! ev-queue %) cmd-ch 
+                   in-ch #(! ev-queue %)
                    {:batch-sample-intv 10})] 
 
     (testing "batch incoming msgs using batch-sample-intv" 
@@ -146,7 +144,7 @@
            32) 
         "rcv all 32 msgs")
 
-    (let [prc-cnt (<!! (get-process-cnt cmd-ch))] 
+    (let [prc-cnt (<!! (get-process-cnt incm-atr))] 
       (debug "process count:" prc-cnt)
       (is (and (> prc-cnt 14) (< prc-cnt 20)) 
           "batch 32 messages into 15-20 processing events - see also New events debug log."))

@@ -84,8 +84,8 @@
             [[:success user-msg user-id]] (assoc m :auth-success true  :user-msg user-msg :user-id  user-id)
             [[_        user-msg]]         (assoc m :auth-success false :user-msg user-msg)))
 
-(defn send-user-msg! [m send-fn]
-  (send-fn (:user-socket m) (:user-msg m)) ;; send-fn is async/non-blocking/fire and forget. TODO: could evaluate options/on-success async outcome
+(defn send-user-msg! [m]
+  ((:server-snd-fn m) (:user-socket m) (:user-msg m)) ;; send-fn is async/non-blocking/fire and forget. TODO: could evaluate options/on-success async outcome
   m)
 
 (defn bl-send-user-msg! [send-fn {:keys [user-socket user-msg] :as m} cb]
@@ -103,13 +103,13 @@
     (info (format "Ws-auth attempt failed: %s" (:user-msg m))))
   m)
 
-(defn close-or-pass! [m close-fn]
+(defn close-or-pass! [m]
   (if-not (:auth-success m)
-    (do (close-fn (:user-socket m)) nil)) ;; Return nil on failure
+    (do ((:server-close-fn m) (:user-socket m)) nil)) ;; Return nil on failure
   m)
 
 
-(defsfn auth-process [auth-args send-fn close-fn timeout]
+(defsfn auth-process [auth-args timeout]
   "Wait for auth cmd, add user-id and send success msg or
   disconnect and return nil."
   (-> auth-args 
@@ -117,10 +117,10 @@
                 :immutant (check-auth-from-chan-immut m timeout)   ;; pausing fiber 
                 :aleph    (check-auth-from-chan-aleph m timeout))) ;; pausing fiber
       auth-success-args
-      (send-user-msg! send-fn) ;; non-blocking
+      send-user-msg! ;; non-blocking
       ;; (->> (p/await bl-send-user-msg! send-fn))  ;; TODO: test this!
       log-auth-success!
-      (close-or-pass! close-fn)))
+      close-or-pass!))
 
 ;; TEST-CODE
 ;; (def ch1 (channel))

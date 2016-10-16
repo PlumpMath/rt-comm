@@ -1,11 +1,7 @@
 (ns rt-comm.components.ws-handler-aleph-main
   (:require [rt-comm.incoming.connect-auth :refer [connect-process auth-process]] 
-            ;; [rt-comm.incoming.ws-user-pulsar    :refer [incoming-ws-user-actor]]
-            ;; [rt-comm.incoming.ws-user-coreasync :refer [incoming-ws-user-actor]]
-            [rt-comm.incoming.ws-user-manifold  :refer [incoming-ws-user-actor]]
 
-            [rt-comm.incoming.stateless-transform :refer [incoming-tx]]
-
+            [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]]
             [rt-comm.utils.async :as au]
 
             [com.stuartsierra.component :as component]
@@ -48,42 +44,6 @@
 
 
 
-(defn init-ws-user! [{:keys [user-socket ws-conns event-queue] :as args}]
-
-  (let [user-socket-in  (s/->source user-socket) 
-
-        in-tx           (-> (select-keys args [:user-id :allowed-actns])
-                            incoming-tx) 
-
-        ;; Manifold
-        ;; incom-tx-stream (s/transform in-tx user-socket-in)
-
-        ;; core.async
-        incom-tx-stream (au/transf-st-ch user-socket-in in-tx)
-
-        ;; Pulsar
-        ;; incom-tx-stream (au/transf-st-pch user-socket-in in-tx)
-
-
-        ;; Pulsar
-        ;; incoming-actor (spawn incoming-ws-user-actor 
-        ;;                       incom-tx-stream
-        ;;                       event-queue
-        ;;                       (select-keys args [:batch-sample-intv]))
-
-        ;; Manifold or core.async
-        incoming-actor (incoming-ws-user-actor
-                         incom-tx-stream
-                         #(! event-queue %)  ;; snd-event-queue function
-                         (select-keys args [:batch-sample-intv]))
-
-
-        outgoing-actor nil]
-
-    (swap! ws-conns conj {:user-id        (:user-id args)
-                          :socket         user-socket ;; debug only?!
-                          :incoming-actor incoming-actor
-                          :outgoing-actor outgoing-actor})))
 
 
 ;; TEST CODE:
@@ -106,19 +66,12 @@
 #_(defn make-handler [init-ws-user-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
-    (let [auth-ws-user-args {:on-open-user-socket (http/websocket-connection request)
-                             :server              :aleph}]
-          ;:user-id            nil ;; Will be provided in auth-process - auth-result
-          ;:user-socket        nil ;; Will be provide by @on-open-user-socket
+    (let [ws-user-args {:on-open-user-socket (http/websocket-connection request)
+                        :server              :aleph
+                        :server-snd-fn       s/put! 
+                        :server-close-fn     s/close!}]
 
-      ;; run connect- and auth processes in fiber, then init incoming-user-process
-      (fiber (some-> auth-ws-user-args 
-                     (connect-process 200) ;; wait for connection, assoc user-socket
-                     (auth-process s/put! s/close! 200) ;; returns auth-ws-user-args with assoced user-id or nil
-
-                     (select-keys [:user-id :user-socket])
-                     (merge init-ws-user-args)
-                     #_init-ws-user!)))))
+      (spawn-fiber (connect-auth-init! (merge init-ws-user-args ws-user-args))))))
 
 
 ;; TEST CODE: manual
