@@ -16,7 +16,8 @@
                  [com.taoensso/timbre "4.3.1"]
                  [json-html "0.3.9"]
                  [hiccup "1.0.5"] 
-                 [io.aviso/pretty "0.1.20"] ;; REPL formatting
+                 ;; [io.aviso/pretty "0.1.20"] ;; REPL formatting
+                 [criterium "0.4.4"]
 
                  [org.immutant/immutant "2.1.3"]
                  [aleph "0.4.1"]

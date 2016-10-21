@@ -1,4 +1,4 @@
-(ns rt-comm.incoming-ws-user-pulsar-test
+(ns rt-comm.incoming.ws-user-pulsar-test
   (:require [clojure.core.match :refer [match]]
 
             [co.paralleluniverse.pulsar.core :as p :refer [rcv fiber sfn defsfn snd join spawn-fiber sleep]]

@@ -1,7 +1,7 @@
 (ns rt-comm.components.ws-handler-immutant-main
   (:require [rt-comm.incoming.connect-auth :refer [connect-process auth-process]] 
             [rt-comm.utils.utils :refer [valp]]
-            [rt-comm.init-ws-user :refer [connect-auth-init! init-ws-user!]]
+            [rt-comm.init-ws-user :as init-ws-user]
 
             [com.stuartsierra.component :as component] 
             [immutant.web.async :as async]
@@ -42,12 +42,13 @@
 ;;                           :incoming-actor incoming-actor
 ;;                           :outgoing-actor outgoing-actor})))
 
-(defn immut-ws-setup []
+#_(defn immut-ws-setup []
   "Returns immut-cbs map and a map of related in-channel and promises
   that connect the Immutant API with the app."
 
   ;; The following channel and promises will connect the immutant api with the app
   (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
+        ;; ch-incoming (a/chan (sliding-buffer 16)) 
         [on-open-user-socket on-close-msg on-error-err] (repeatedly 3 p/promise) 
 
         immut-cbs {:on-open    (fn [user-socket] (deliver on-open-user-socket user-socket)) 
@@ -79,13 +80,15 @@
 
 ;; -------------------------------------------------------------------------------
 
-(defn make-handler [init-ws-user-args]
+#_(defn make-handler [init-ws-user-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [[immut-cbs ws-user-args] (immut-ws-setup)]
 
-      (spawn-fiber (connect-auth-init! (merge init-ws-user-args ws-user-args)))
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args)) 
       (async/as-channel request immut-cbs)))) ;; Does not block. Returns ring response. Could use user-socket in response :body 
+
+
 
 ;; TEST CODE: manual
 ;; (do

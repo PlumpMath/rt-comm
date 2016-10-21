@@ -1,0 +1,3 @@
+[{:user-id "pete" :pw "abc"} 
+ {:user-id "paul" :pw "cde"} 
+ {:user-id "mary" :pw "fgh"}]

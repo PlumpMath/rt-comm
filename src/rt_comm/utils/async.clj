@@ -6,12 +6,59 @@
                                               sliding-buffer]]
 
             [manifold.stream :as s]
+            [manifold.deferred :as d]
+            [co.paralleluniverse.pulsar.core :as p :refer [defsfn]]
             [co.paralleluniverse.pulsar.async :as pa]
 
             [clojure.core.match :refer [match]]
 
             [taoensso.timbre :refer [debug info error spy]])) 
 
+
+(defsfn timeout! [p timeout v]
+  "Suspend fiber for timeout ms, then deliver
+  v to promise/deferred p."
+  (do (p/sleep timeout) 
+      (deliver p v))
+  p)
+
+
+(defsfn await-deref [d] 
+  "Deref the given manifold.deferred (using a callback), merely
+  blocking the current fiber, not the current thread."
+  (if (= (type d) manifold.deferred.Deferred) 
+    (p/await (fn [d cb]
+               (d/on-realized d cb cb))
+             d)
+    (deref d)))
+
+(defsfn await-<! [ch] 
+  "Take from ch (using a callback), merely
+  blocking the current fiber, not the current thread."
+  (p/await (fn [ch cb]
+             (a/take! ch cb))
+           ch))
+
+
+(defn ch-type [ch]
+  "Returns :coreasync, :manifold or :pulsar based on ch type"
+  (condp contains? (type ch)
+    #{clojure.core.async.impl.channels.ManyToManyChannel}    
+    :coreasync
+
+    #{manifold.stream.default.Stream}
+    :manifold
+
+    #{co.paralleluniverse.strands.channels.QueueObjectChannel co.paralleluniverse.strands.channels.TransferChannel} 
+    :pulsar 
+    :not-found))
+
+;; TEST-CODE:
+;; (def ch1 (p/channel))
+;; (def ch1 (pa/chan))
+;; (def ch1 (a/chan))
+;; (def ch1 (s/stream))
+;; (ch-type ch1)
 
 
 (defn transform-ch [ch tx]
@@ -29,6 +76,11 @@
   (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
        (s/connect stream)))
 
+(defn transf-pch-pch [ch tx]
+  "Returns pulsar channel with tx, reading form pulsar channel."
+  (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
+       (pa/pipe ch)))
+
 
 (defn batch-rcv-ev-colls [ch]
   "Poll! available event collections from ch and batch
@@ -45,7 +97,6 @@
 ;; (<!! (batch-rcv-ev-colls c1))
 ;; (>!! c1 [2 3 4])
 ;; (>!! c1 [5 6 7])
-;; (vector? )
 
 
 (defn rcv-rest [first-msg ch]

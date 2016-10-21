@@ -1,4 +1,4 @@
-(ns rt-comm.incoming-ws-user-manifold-test
+(ns rt-comm.incoming.ws-user-manifold-test
   (:require [clojure.core.match :refer [match]]
 
             [manifold.stream :as s]

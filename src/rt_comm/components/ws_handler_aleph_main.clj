@@ -4,6 +4,8 @@
             [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]]
             [rt-comm.utils.async :as au]
 
+            [rt-comm.init-ws-user :as init-ws-user]
+
             [com.stuartsierra.component :as component]
             [clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
                                               <!! >!! alt! pipe
@@ -71,7 +73,7 @@
                         :server-snd-fn       s/put! 
                         :server-close-fn     s/close!}]
 
-      (spawn-fiber (connect-auth-init! (merge init-ws-user-args ws-user-args))))))
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args)))))
 
 
 ;; TEST CODE: manual

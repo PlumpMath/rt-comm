@@ -1,4 +1,4 @@
-(ns rt-comm.incoming-ws-user-coreasync-test
+(ns rt-comm.incoming.ws-user-coreasync-test
   (:require [clojure.core.match :refer [match]]
 
             [clojure.core.async :as a :refer [pub sub chan <! >! go-loop go alt!! 
