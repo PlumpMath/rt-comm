@@ -10,17 +10,18 @@
 
             [rt-comm.components.event-queue :as event-queue]
             [rt-comm.utils.utils :refer [valp]]
+            [rt-comm.utils.async-pulsar :as up]
             [rt-comm.incoming.ws-user-pulsar :refer :all]))
 
 
 (deftest batch-rcv-ev-colls-test
   (let [c1 (p/channel 10)]
-    (is (= (batch-rcv-ev-colls c1) nil) "Returns nil if no events were available")
+    (is (= (up/batch-rcv-ev-colls c1) nil) "Returns nil if no events were available")
     (snd c1 [2 3 4]) 
     (snd c1 [5 6 7])
-    (is (= (batch-rcv-ev-colls c1) [2 3 4 5 6 7]) 
+    (is (= (up/batch-rcv-ev-colls c1) [2 3 4 5 6 7]) 
         "Rcv available event collections from ch and batch them into one event collection.")
-    (is (= (batch-rcv-ev-colls c1) nil) "Returns nil if no events were available")))
+    (is (= (up/batch-rcv-ev-colls c1) nil) "Returns nil if no events were available")))
 
 
 
@@ -42,84 +43,84 @@
   (let [in-ch    (p/channel 4 :displace)
         ev-queue (spawn event-queue/server-actor [] 100)
         incm-atr (spawn incoming-ws-user-actor 
-                        in-ch ev-queue
+                        in-ch #(! ev-queue %)
                         {:batch-sample-intv 0})]
 
     (testing "Consumes msgs from in-ch - :append!s msgs to event-queue."
       (snd in-ch [{:aa 22} {:bb 24}])
       (snd in-ch [{:aa 26} {:bb 28}])
       (is (= @(spawn-fiber get-reset ev-queue) 
-             [{:aa 22, :idx 0} {:bb 24, :idx 1} {:aa 26, :idx 2} {:bb 28, :idx 3}]) 
-          "Msgs in sequence"))
+               [{:aa 22, :idx 0} {:bb 24, :idx 1} {:aa 26, :idx 2} {:bb 28, :idx 3}]) 
+            "Msgs in sequence"))
 
     (testing "augment msgs based on settable state"
-      (snd in-ch  [{:aa 12 :recip-chans #{:cc :dd}} 
-                   {:bb 38}])
-      (sleep 10)
-      (! incm-atr [:set-fixed-recip-chs #{:ach :bch}]) ;; turn fixed receip-chans on
-      (sleep 10)
-      (snd in-ch  [{:aa 14 :recip-chans #{:bch :dd}} 
-                   {:bb 40}])
+        (snd in-ch  [{:aa 12 :tags #{:cc :dd}} 
+                     {:bb 38}])
+        (sleep 10)
+        (! incm-atr [:maintained-tags #{:ach :bch}]) ;; turn fixed receip-chans on
+        (sleep 10)
+        (snd in-ch  [{:aa 14 :tags #{:bch :dd}} 
+                     {:bb 40}])
 
-      (is (= @(spawn-fiber get-reset ev-queue)
-             [{:aa 12, :recip-chans #{:dd :cc}, :idx 0}
-              {:bb 38, :idx 1}
-              {:aa 14, :recip-chans #{:ach :dd :bch}, :idx 2}
-              {:bb 40, :recip-chans #{:ach :bch}, :idx 3}]) 
-          "Add chs after turned on.")
+        (is (= @(spawn-fiber get-reset ev-queue)
+               [{:aa 12, :tags #{:dd :cc}, :idx 0}
+                {:bb 38, :idx 1}
+                {:aa 14, :tags #{:ach :dd :bch}, :idx 2}
+                {:bb 40, :tags #{:ach :bch}, :idx 3}]) 
+            "Add chs after turned on.")
 
-      (snd in-ch  [{:aa 16 :recip-chans #{:other}} 
-                   {:bb 42}])
-      (sleep 10)
-      (! incm-atr [:set-fixed-recip-chs nil]) ;; turn fixed receip-chans off
-      (sleep 10)
-      (snd in-ch  [{:aa 18 :recip-chans #{:other}} 
-                   {:bb 44}])
+        (snd in-ch  [{:aa 16 :tags #{:other}} 
+                     {:bb 42}])
+        (sleep 10)
+        (! incm-atr [:maintained-tags nil]) ;; turn fixed receip-chans off
+        (sleep 10)
+        (snd in-ch  [{:aa 18 :tags #{:other}} 
+                     {:bb 44}])
 
-      (is (= @(spawn-fiber get-reset ev-queue)
-             [{:aa 16, :recip-chans #{:ach :bch :other}, :idx 0}
-              {:bb 42, :recip-chans #{:ach :bch}, :idx 1}
-              {:aa 18, :recip-chans #{:other}, :idx 2}
-              {:bb 44, :idx 3}]) 
-          "allow to turn fixed receip-chans off"))
+        (is (= @(spawn-fiber get-reset ev-queue)
+               [{:aa 16, :tags #{:ach :bch :other}, :idx 0}
+                {:bb 42, :tags #{:ach :bch}, :idx 1}
+                {:aa 18, :tags #{:other}, :idx 2}
+                {:bb 44, :idx 3}]) 
+            "allow to turn fixed receip-chans off"))
 
     (testing "pause/resume rcving msgs and let the windowed upstream ch overflow"
-      (snd in-ch [{:aa 10} {:bb 20}])
-      (snd in-ch [{:aa 11} {:bb 21}])
-      (sleep 10)
-      (! incm-atr :pause-rcv-overflow)
-      (sleep 10)
-      (snd in-ch [{:aa 12} {:bb 20}]) ;; should be dropped by displace channel 
-      (snd in-ch [{:aa 13} {:bb 21}]) ;; should be dropped by displace channel
-      (snd in-ch [{:aa 14} {:bb 20}]) ;; will be in buffer ..->
-      (snd in-ch [{:aa 15} {:bb 21}])
-      (snd in-ch [{:aa 16} {:bb 20}])
-      (snd in-ch [{:aa 17} {:bb 21}])
+        (snd in-ch [{:aa 10} {:bb 20}])
+        (snd in-ch [{:aa 11} {:bb 21}])
+        (sleep 10)
+        (! incm-atr :pause-rcv-overflow)
+        (sleep 10)
+        (snd in-ch [{:aa 12} {:bb 20}]) ;; should be dropped by displace channel 
+        (snd in-ch [{:aa 13} {:bb 21}]) ;; should be dropped by displace channel
+        (snd in-ch [{:aa 14} {:bb 20}]) ;; will be in buffer ..->
+        (snd in-ch [{:aa 15} {:bb 21}])
+        (snd in-ch [{:aa 16} {:bb 20}])
+        (snd in-ch [{:aa 17} {:bb 21}])
 
-      (is (= @(spawn-fiber get-reset ev-queue) 
-             [{:aa 10, :idx 0} {:bb 20, :idx 1} 
-              {:aa 11, :idx 2} {:bb 21, :idx 3}]) 
-          "stoped processing msgs after :pause-rcv-overflow is called.")
+        (is (= @(spawn-fiber get-reset ev-queue) 
+               [{:aa 10, :idx 0} {:bb 20, :idx 1} 
+                {:aa 11, :idx 2} {:bb 21, :idx 3}]) 
+            "stoped processing msgs after :pause-rcv-overflow is called.")
 
-      (sleep 10)
-      (! incm-atr :resume-rcv)
-      (sleep 10)
+        (sleep 10)
+        (! incm-atr :resume-rcv)
+        (sleep 10)
 
-      (is (= @(spawn-fiber get-reset ev-queue) 
-             [{:aa 14, :idx 0} {:bb 20, :idx 1} 
-              {:aa 15, :idx 2} {:bb 21, :idx 3} 
-              {:aa 16, :idx 4} {:bb 20, :idx 5} 
-              {:aa 17, :idx 6} {:bb 21, :idx 7}]) 
-          "process buffered msgs in in-ch after :resume-rcv is called."))
+        (is (= @(spawn-fiber get-reset ev-queue) 
+               [{:aa 14, :idx 0} {:bb 20, :idx 1} 
+                {:aa 15, :idx 2} {:bb 21, :idx 3} 
+                {:aa 16, :idx 4} {:bb 20, :idx 5} 
+                {:aa 17, :idx 6} {:bb 21, :idx 7}]) 
+            "process buffered msgs in in-ch after :resume-rcv is called."))
 
     (testing "Fast receiving" 
-      (fiber (dotimes [n 32]
-               (sleep 1)
-               (snd in-ch [{:aa n}]))))
+        (fiber (dotimes [n 32]
+                 (sleep 1)
+                 (snd in-ch [{:aa n}]))))
 
     (is (= (count @(spawn-fiber get-reset ev-queue)) 
-           32) 
-        "rcv all 32 msgs")
+             32) 
+          "rcv all 32 msgs")
 
     ;; @(spawn-fiber get-reset ev-queue)
 
@@ -130,7 +131,7 @@
   (let [in-ch    (p/channel 4 :displace)
         ev-queue (spawn event-queue/server-actor [] 100)
         incm-atr (spawn incoming-ws-user-actor 
-                        in-ch ev-queue
+                        in-ch #(! ev-queue %)
                         {:batch-sample-intv 10})]
 
     (testing "batch incoming msgs using batch-sample-intv" 

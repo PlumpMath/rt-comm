@@ -1,5 +1,5 @@
 (ns rt-comm.utils.async-manifold
-  (:require [rt-comm.utils.utils :as utils :refer [valp fpred add-to-col-in-table]] 
+  (:require [rt-comm.utils.utils :as utils :refer [valp]] 
 
             [manifold.stream :as s]
             [manifold.deferred :as d]

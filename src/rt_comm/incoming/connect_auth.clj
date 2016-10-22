@@ -50,7 +50,7 @@
 
 (defn auth-result [auth-msg user-data]
   "Checks auth-msg + included login, returns [:auth-outcome 'message' user-id]."
-  ;; (println "auth-msg:" auth-msg)
+  (println "auth-msg:" auth-msg)
   (match auth-msg
          {:cmd [:auth login]} (if (u/contains-el? login user-data) 
                                 [:success "Login success!" (:user-id login)] 
@@ -66,6 +66,22 @@
 ;; (auth-result {:cmd [:auth {:user-id "pete" :pw "abc"}]} user-data)
 ;; (auth-result {:cmd [:auth {:user-id "pete" :pw "abd"}]} user-data)
 ;; (auth-result :timed-out user-data)
+;;
+;; {:cmd [:auth {:user-id "pete" :pw "abc"}] :time 1234}
+;; {:actn :auth :data {:user-id "pete" :pw "abc"} :time 1234}
+;;
+;; ;; TODO: change format!
+;; (def v {:actn :auth :data {:user-id "pete" :pw "abc"} :time 1234})
+;; (def v :timed-out)
+;;
+;; (match [v] 
+;;        [{:actn :auth 
+;;          :data login}] (if (u/contains-el? login user-data) 
+;;                          [:success "Login success!" (:user-id login)] 
+;;                          [:failed  "Login failed! Disconnecting."])
+;;
+;;        [:timed-out]      [:timed-out "Authentification timed out! Disconnecting."] 
+;;        :else             [:no-auth-cmd "Expected auth. command not found! Disconnecting."])
 
 
 (defn auth-success-args [m]
@@ -103,10 +119,9 @@
 
 
 (defsfn auth-process [args timeout]
-  "Wait for auth cmd, add user-id, send user msg, on failor
+  "Wait for auth cmd, add user-id, send user msg, on failure
   disconnect and return nil."
   (-> (auth-msg (:ch-incoming args) timeout) ;; pause fiber
-      ;; info
       (auth-result (:user-data args))
       (->> (assoc args :auth-result)) 
       auth-success-args
@@ -115,22 +130,6 @@
       log-auth-success
       close-or-pass!))
 
-;; TEST-CODE
-;; (def ch1 (channel))
-;; (def pr2 (fiber (-> {:ch-incoming ch1}
-;;                     (check-auth-from-chan 5000)
-;;                     auth-success-args
-;;                     log-auth-success
-;;                     )))
-;; (snd ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]})
-;; (def ch1 (s/stream))
-;; (def pr2 (fiber (-> {:on-open-user-socket  (d/deferred)
-;;                      :server :aleph} 
-;;                     (check-auth-from-chan 5000)
-;;                     auth-success-args
-;;                     log-auth-success
-;;                     )))
-;; (s/put! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]})
 
 (defsfn connect-process [{:keys [on-open-user-socket] :as m} timeout]
   "Assoc :user-socket from connection promise [or deferred]

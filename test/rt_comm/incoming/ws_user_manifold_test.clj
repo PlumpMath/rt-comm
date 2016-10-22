@@ -59,33 +59,33 @@
 
 
     (testing "augment msgs based on settable state"
-        (s/put! in-ch  [{:aa 12 :recip-chans #{:cc :dd}} 
+        (s/put! in-ch  [{:aa 12 :tags #{:cc :dd}} 
                         {:bb 38}])
         (sleep 10)
-        (s/put! incm-atr [:fixed-recip-chs #{:ach :bch}]) ;; turn fixed receip-chans on
+        (s/put! incm-atr [:maintained-tags #{:ach :bch}]) ;; turn fixed receip-chans on
         (sleep 10)
-        (s/put! in-ch  [{:aa 14 :recip-chans #{:bch :dd}} 
+        (s/put! in-ch  [{:aa 14 :tags #{:bch :dd}} 
                         {:bb 40}])
 
         (is (= (eq/get-reset ev-queue)
-               [{:aa 12, :recip-chans #{:dd :cc}, :idx 0}
+               [{:aa 12, :tags #{:dd :cc}, :idx 0}
                 {:bb 38, :idx 1}
-                {:aa 14, :recip-chans #{:ach :dd :bch}, :idx 2}
-                {:bb 40, :recip-chans #{:ach :bch}, :idx 3}]) 
+                {:aa 14, :tags #{:ach :dd :bch}, :idx 2}
+                {:bb 40, :tags #{:ach :bch}, :idx 3}]) 
             "Add chs after turned on.")
 
-        (s/put! in-ch  [{:aa 16 :recip-chans #{:other}} 
+        (s/put! in-ch  [{:aa 16 :tags #{:other}} 
                         {:bb 42}])
         (sleep 10)
-        (s/put! incm-atr [:fixed-recip-chs nil]) ;; turn fixed receip-chans off
+        (s/put! incm-atr [:maintained-tags nil]) ;; turn fixed receip-chans off
         (sleep 10)
-        (s/put! in-ch  [{:aa 18 :recip-chans #{:other}} 
+        (s/put! in-ch  [{:aa 18 :tags #{:other}} 
                         {:bb 44}])
 
         (is (= (eq/get-reset ev-queue)
-                 [{:aa 16, :recip-chans #{:ach :bch :other}, :idx 0}
-                  {:bb 42, :recip-chans #{:ach :bch}, :idx 1}
-                  {:aa 18, :recip-chans #{:other}, :idx 2}
+                 [{:aa 16, :tags #{:ach :bch :other}, :idx 0}
+                  {:bb 42, :tags #{:ach :bch}, :idx 1}
+                  {:aa 18, :tags #{:other}, :idx 2}
                   {:bb 44, :idx 3}]) 
               "allow to turn fixed receip-chans off"))
 

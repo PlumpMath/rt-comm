@@ -64,6 +64,8 @@
 ;;
 ;; (! in-ac [:append! [{:eins 11} {:zwei 22}]])
 
+(def time-out 3000)
+
 
 #_(defn make-handler [init-ws-user-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
@@ -73,7 +75,7 @@
                         :server-snd-fn       s/put! 
                         :server-close-fn     s/close!}]
 
-      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args)))))
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args) time-out))))
 
 
 ;; TEST CODE: manual

@@ -66,20 +66,22 @@
   (->> (chan 1 tx) ;; Tx only has effect if buffer > 0
        (a/pipe ch)))
 
-(defn transf-st-ch [stream tx]
-  "Returns ch with tx, reading form Manifold stream."
-  (->> (chan 1 tx) ;; Tx only has effect if buffer > 0
-       (s/connect stream)))
-
-(defn transf-st-pch [stream tx]
-  "Returns pulsar channel with tx, reading form Manifold stream."
-  (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
-       (s/connect stream)))
-
-(defn transf-pch-pch [ch tx]
+(defn transform-pch [ch tx]
   "Returns pulsar channel with tx, reading form pulsar channel."
   (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
        (pa/pipe ch)))
+
+
+;; (defn transf-st-ch [stream tx]
+;;   "Returns ch with tx, reading form Manifold stream."
+;;   (->> (chan 1 tx) ;; Tx only has effect if buffer > 0
+;;        (s/connect stream)))
+;;
+;; (defn transf-st-pch [stream tx]
+;;   "Returns pulsar channel with tx, reading form Manifold stream."
+;;   (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
+;;        (s/connect stream)))
+
 
 
 (defn batch-rcv-ev-colls [ch]

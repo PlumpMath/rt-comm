@@ -55,6 +55,11 @@
            (subvec vect)))
 
 
+(defn is-ev-coll? [v]
+  "Returns true if v is a coll of maps, e.g. the first item is a map, nil otherwise."
+  (some-> v (get 0) map?))
+
+
 ;; (defn add-to-col-in-table [rows column-key new-items]
 ;;   "Adds new-items to :column-key in rows [vec of maps]."
 ;;   (into [] (map (fn [row] 

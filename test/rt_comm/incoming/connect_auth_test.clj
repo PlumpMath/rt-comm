@@ -248,7 +248,7 @@
         (is (= @!calls
                ["Login success!"]))))))
 
-;; TODO: 2 tests fail just on first run!
+;; TODO: fails just on first run!
 ;; (run-tests)
 
 

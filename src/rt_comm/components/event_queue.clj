@@ -198,7 +198,7 @@
                                    (recur pend-reqs queue))
 
            [:get-q-reset client] (do (! client [:rcv queue])
-                                   (recur [] []))
+                                     (recur [] []))
 
            [:save-data file-path] (do (save-events! queue file-path) 
                                       (recur pend-reqs queue))

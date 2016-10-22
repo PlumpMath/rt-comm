@@ -77,6 +77,7 @@
 ;;           #_init-ws-user!))
 
 
+(def time-out 3000)
 
 ;; -------------------------------------------------------------------------------
 
@@ -85,7 +86,7 @@
 
     (let [[immut-cbs ws-user-args] (immut-ws-setup)]
 
-      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args)) 
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args) time-out) 
       (async/as-channel request immut-cbs)))) ;; Does not block. Returns ring response. Could use user-socket in response :body 
 
 

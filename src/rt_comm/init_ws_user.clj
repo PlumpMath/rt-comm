@@ -5,11 +5,12 @@
             [rt-comm.incoming.ws-user-coreasync :as ws-user-coreasync]
             [rt-comm.incoming.ws-user-manifold  :as ws-user-manifold]
 
-            [rt-comm.incoming.stateless-transform :refer [incoming-tx]]
+            [rt-comm.incoming.stateless-transform :as stateless-transf]
 
             [rt-comm.utils.utils :as u :refer [cond= valp]]
             [rt-comm.utils.async :as au]
 
+            [manifold.deferred :as d]
             [manifold.stream :as s]
             [clojure.core.async :as a] ;; for testing only ->
 
@@ -28,31 +29,70 @@
        (assoc m :user-data)))
 
 
-(defsfn connect-auth-init! [ws-user-args]
+(defsfn connect-auth-init! [ws-user-args timeouts]
   "Suspendible fn running connect- and auth process, conditionally calling init-ws-user!"
   (some-> ws-user-args 
-          (conn-auth/connect-process 200) ;; wait for connection and assoc user-socket
-          (cond= :server :aleph #(assoc % :ch-incoming (:user-socket %))) ;; with aleph the user-socket is also the ch-incoming
+          (conn-auth/connect-process timeouts) ;; wait for connection and assoc user-socket
+          (cond= :server :aleph #(assoc % :ch-incoming (-> % :user-socket s/->source))) ;; with aleph the user-socket is also the ch-incoming
           load-user-data
-          (conn-auth/auth-process 200) ;; returns augmented init-ws-user-args or nil
+          (conn-auth/auth-process timeouts) ;; returns augmented init-ws-user-args or nil
 
           #_init-ws-user!))
 
+;; TEST-CODE: Immutant
+;; (do 
+;; (def !calls (atom []))
+;; (def args {:server-snd-fn   (fn [ch msg] (swap! !calls conj msg))
+;;            :server-close-fn (fn [ch] (swap! !calls conj "closed!"))})
+;;
+;; (def ch-incoming (a/chan))
+;; (def on-open-user-socket (promise))
+;; (def user-socket (a/chan))
+;;
+;; (def fb (fiber (connect-auth-init! (merge args {:ch-incoming          ch-incoming
+;;                                                 :on-open-user-socket  on-open-user-socket
+;;                                                 :server :immutant}) 
+;;                                    3000)))
+;; )
+;;
+;; (deliver on-open-user-socket user-socket) ;; connect event
+;; (a/>!! ch-incoming {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; immutant
+;; ;; (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; aleph
+;; (:auth-result (join fb))
+;; (deref !calls)
+
+;; TEST-CODE: Aleph
+;; (do 
+;; (def !calls (atom []))
+;; (def args {:server-snd-fn   (fn [ch msg] (swap! !calls conj msg))
+;;            :server-close-fn (fn [ch] (swap! !calls conj "closed!"))})
+;;
+;; (def on-open-user-socket (d/deferred))
+;; (def user-socket (s/stream))
+;;
+;; (def fb (fiber (connect-auth-init! (merge args {:on-open-user-socket  on-open-user-socket
+;;                                                 :server :aleph}) 
+;;                                    3000)))
+;; )
+;;
+;; (deliver on-open-user-socket user-socket) ;; connect event
+;; (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; immutant
+;; ;; (s/put! user-socket {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; aleph
+;; (:auth-result (join fb))
+;; (deref !calls)
 
 
-#_(defn init-ws-user! [{:keys [user-socket ch-incoming event-queue] :as args}]
+(defn init-ws-user! [{:keys [user-socket ch-incoming event-queue] :as args}]
 
-  (let [user-socket-in  (valp ch-incoming some? (s/->source user-socket)) 
+  (let [in-tx           (-> (select-keys args [:user-id :allowed-actns])
+                            stateless-transf/incoming-tx) 
 
-        in-tx           (-> (select-keys args [:user-id :allowed-actns])
-                            incoming-tx) 
+        incom-tx-stream (case (au/ch-type ch-incoming)
+                          :pulsar    (au/transform-pch ch-incoming in-tx) 
+                          :coreasync (au/transform-ch  ch-incoming in-tx)
+                          :manifold  (s/transform in-tx ch-incoming))
 
-        incom-tx-stream (case (au/ch-type user-socket-in)
-                          :pulsar    (au/transf-pch-pch user-socket-in in-tx) 
-                          :coreasync (au/transform-ch user-socket-in in-tx)
-                          :manifold  (s/transform in-tx user-socket-in))
-
-        incoming-actor (case (au/ch-type user-socket-in)
+        incoming-actor (case (au/ch-type ch-incoming)
                           :pulsar    (ws-user-pulsar/incoming-ws-user-actor 
                                        incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])) 
                           :coreasync (ws-user-coreasync/incoming-ws-user-actor 

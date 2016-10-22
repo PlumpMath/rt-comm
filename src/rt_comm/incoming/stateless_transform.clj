@@ -13,7 +13,7 @@
 
 
 (defn filter-to-allowed-actns [allowed-actns]
-  "Returned fn filters a collection of maps based on each element's :actn val being included in allowed-actns"
+  "Returned fn filters a coll of maps [coll of evts] based on each element's :actn val being included in allowed-actns"
   (->> (comp (set allowed-actns) :actn) ;; predicate tests a map's :actn val to be one of allowed-actns. 
        (partial filterv))) 
 
@@ -25,7 +25,7 @@
 
 
 (defn incoming-tx [{:keys [user-id allowed-actns]}] 
-  "Creates incoming transform transducer."
+  "Creates incoming transform transducer, deleting non-allowed actns and associng user-id."
   (comp 
     (map (filter-to-allowed-actns allowed-actns)) ;; delete events with non-allowed actns in ev-coll msgs
     (filter seq)                                  ;; delete empty ev-coll msgs
