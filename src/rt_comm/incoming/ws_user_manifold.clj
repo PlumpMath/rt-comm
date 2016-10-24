@@ -9,13 +9,10 @@
                                                        register! unregister! self]]
             [co.paralleluniverse.pulsar.core :as p :refer [rcv try-rcv sfn defsfn snd join fiber spawn-fiber sleep]]
 
-
             [clojure.core.match :refer [match]]
 
             [rt-comm.components.event-queue :as eq] ;; testing only!
             [taoensso.timbre :refer [debug info error spy]]))
-
-
 
 
 (defn process-msgs [msgs tags]

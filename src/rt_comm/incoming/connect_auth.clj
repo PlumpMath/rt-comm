@@ -34,54 +34,51 @@
 ;; TEST-CODE:
 ;; (def ch1 (channel))
 ;; (def fu1 (fiber (auth-msg ch1 4000)))
-;; (future (snd ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]})) ;; pass in the auth command
+;; (future (snd ch1 {:actn :auth :data {:user-id "pete" :pw "abc"}})) ;; pass in the auth command
 ;; (deref fu1)
 ;;
 ;; (def ch1 (a/chan))
 ;; (def fu1 (fiber (auth-msg ch1 4000)))
-;; (future (a/>!! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]})) ;; pass in the auth command
+;; (future (a/>!! ch1 {:actn :auth :data {:user-id "pete" :pw "abc"}})) ;; pass in the auth command
 ;; (deref fu1)
 ;;
 ;; (def ch1 (s/stream))
 ;; (def fu1 (fiber (auth-msg ch1 4000)))
-;; (s/put! ch1 {:cmd [:auth {:user-id "pete" :pw "abc"}]}) ;; pass in the auth command
+;; (s/put! ch1 {:actn :auth :data {:user-id "pete" :pw "abc"}}) ;; pass in the auth command
 ;; (deref fu1)
 
 
+;; (defn auth-result [auth-msg user-data]
+;;   "Checks auth-msg + included login, returns [:auth-outcome 'message' user-id]."
+;;   (println "auth-msg:" auth-msg)
+;;   (match auth-msg
+;;          {:cmd [:auth login]} (if (u/contains-el? login user-data) 
+;;                                 [:success "Login success!" (:user-id login)] 
+;;                                 [:failed  "Login failed! Disconnecting."])
+;;
+;;          :timed-out            [:timed-out "Authentification timed out! Disconnecting."] 
+;;          :else                 [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
+
 (defn auth-result [auth-msg user-data]
   "Checks auth-msg + included login, returns [:auth-outcome 'message' user-id]."
-  (println "auth-msg:" auth-msg)
-  (match auth-msg
-         {:cmd [:auth login]} (if (u/contains-el? login user-data) 
-                                [:success "Login success!" (:user-id login)] 
-                                [:failed  "Login failed! Disconnecting."])
+  ;; (println "auth-msg:" auth-msg)
+  (match [auth-msg] 
+       [{:actn :auth 
+         :data login}] (if (u/contains-el? login user-data) 
+                         [:success "Login success!" (:user-id login)] 
+                         [:failed  "Login failed! Disconnecting."])
 
-         :timed-out            [:timed-out "Authentification timed out! Disconnecting."] 
-         :else                 [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
+       [:timed-out]      [:timed-out "Authentification timed out! Disconnecting."] 
+       :else             [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
+
 
 ;; TEST-CODE:
 ;; (def user-data [{:user-id "pete" :pw "abc"} 
 ;;                 {:user-id "paul" :pw "cde"} 
 ;;                 {:user-id "mary" :pw "fgh"}])
-;; (auth-result {:cmd [:auth {:user-id "pete" :pw "abc"}]} user-data)
-;; (auth-result {:cmd [:auth {:user-id "pete" :pw "abd"}]} user-data)
+;; (auth-result {:actn :auth :data {:user-id "pete" :pw "abc"}} user-data)
+;; (auth-result {:actn :auth :data {:user-id "pete" :pw "abc"}} user-data)
 ;; (auth-result :timed-out user-data)
-;;
-;; {:cmd [:auth {:user-id "pete" :pw "abc"}] :time 1234}
-;; {:actn :auth :data {:user-id "pete" :pw "abc"} :time 1234}
-;;
-;; ;; TODO: change format!
-;; (def v {:actn :auth :data {:user-id "pete" :pw "abc"} :time 1234})
-;; (def v :timed-out)
-;;
-;; (match [v] 
-;;        [{:actn :auth 
-;;          :data login}] (if (u/contains-el? login user-data) 
-;;                          [:success "Login success!" (:user-id login)] 
-;;                          [:failed  "Login failed! Disconnecting."])
-;;
-;;        [:timed-out]      [:timed-out "Authentification timed out! Disconnecting."] 
-;;        :else             [:no-auth-cmd "Expected auth. command not found! Disconnecting."])
 
 
 (defn auth-success-args [m]

@@ -67,7 +67,7 @@
 (def time-out 3000)
 
 
-#_(defn make-handler [init-ws-user-args]
+#_(defn make-handler [init-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [ws-user-args {:on-open-user-socket (http/websocket-connection request)
@@ -75,7 +75,7 @@
                         :server-snd-fn       s/put! 
                         :server-close-fn     s/close!}]
 
-      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args) time-out))))
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-args ws-user-args) time-out))))
 
 
 ;; TEST CODE: manual

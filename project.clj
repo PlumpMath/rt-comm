@@ -7,6 +7,7 @@
 
                  [com.stuartsierra/component "0.3.1"]
                  [org.clojure/core.match "0.3.0-alpha4"]
+                 [clojure-future-spec "1.9.0-alpha13"]
 
                  [org.clojure/core.async "0.2.374"]
                  [co.paralleluniverse/quasar-core "0.7.5"]

@@ -24,8 +24,8 @@
 (deftest auth
   (testing "auth-result" 
     (are [m res] (= (auth-result m user-data) res)
-         {:cmd [:auth {:user-id "pete" :pw "abc"}]} [:success "Login success!" "pete"] 
-         {:cmd [:auth {:user-id "pete" :pw "abd"}]} [:failed  "Login failed! Disconnecting."] 
+         {:actn :auth :data {:user-id "pete" :pw "abc"}} [:success "Login success!" "pete"] 
+         {:actn :auth :data {:user-id "pete" :pw "abd"}} [:failed  "Login failed! Disconnecting."] 
          :timed-out [:timed-out "Authentification timed out! Disconnecting."]))
 
   (testing "auth-msg + auth-result" 
@@ -36,9 +36,9 @@
                       (sleep wait)
                       (future (snd ch cmd)) ;; Send first/auth message 
                       @fu))]
-      (is (= (do-auth {:cmd [:auth {:user-id "pete" :pw "abc"}]} 10) 
+      (is (= (do-auth {:actn :auth :data {:user-id "pete" :pw "abc"}} 10) 
              [:success "Login success!" "pete"]))
-      (is (= (do-auth {:cmd [:auth {:user-id "pete" :pw "abc"}]} 30) 
+      (is (= (do-auth {:actn :auth :data {:user-id "pete" :pw "abc"}} 30) 
              [:timed-out "Authentification timed out! Disconnecting."])))))
 
 
@@ -60,8 +60,8 @@
     (deliver (:on-open-user-socket args) user-socket)
     (sleep wait-auth)
     (if (= (:server args) :aleph) 
-      (future (snd-fn user-socket {:cmd [:auth {:user-id user-id :pw "abc"}]})) 
-      (future (snd-fn (:ch-incoming args) {:cmd [:auth {:user-id user-id :pw "abc"}]})))
+      (future (snd-fn user-socket {:actn :auth :data {:user-id user-id :pw "abc"}})) 
+      (future (snd-fn (:ch-incoming args) {:actn :auth :data {:user-id user-id :pw "abc"}})))
     @fib-rt))
 
 
@@ -248,7 +248,7 @@
         (is (= @!calls
                ["Login success!"]))))))
 
-;; TODO: fails just on first run!
+;; TODO: fails just on first run! this seems related to timeouts working differently on the first run - login succeeding when it's supposed to fail.
 ;; (run-tests)
 
 

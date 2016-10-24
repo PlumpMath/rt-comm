@@ -19,10 +19,10 @@
 
 
 
-(defn process-msgs [msgs recip-chs]
+(defn process-msgs [msgs tags]
   "Augment and filter msgs."
   (-> msgs 
-      (add-to-col-in-table :tags recip-chs)))
+      (add-to-col-in-table :tags tags)))
 
 (defn commit! [msgs snd-ev-queue]
   "Commit msgs to event-queue."
@@ -42,7 +42,7 @@
   (let [ctr-ch (a/chan)] 
 
     (go-loop [state {:maintained-tags nil ;; set of keys will be added to each events :tags coll 
-                    :prc-cnt 0}] ;; for monitoring: the number of ev-colls processed
+                     :prc-cnt 0}] ;; for monitoring: the number of ev-colls processed
 
              (<! (timeout batch-sample-intv)) ;; wait for msgs to buffer in evt-ch
 
