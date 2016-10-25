@@ -54,8 +54,7 @@
       (assoc :dynamo (hc/query!! (:dynamo dbs) :orders {:symbol [:= ticker]} 
                                  {:sort :asc 
                                   :index :symbol
-                                  :limit 10
-                                  }))))
+                                  :limit 10}))))
 ;; TODO: how to make this asyc?
 
 

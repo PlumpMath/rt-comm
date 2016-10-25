@@ -26,7 +26,7 @@
 
 
 (defn init-ws-user! [{:keys [user-socket ch-incoming event-queue] :as args}]
-  ;; (info "args:" args)
+  (info "args:" args)
 
   (let [in-tx           (-> (select-keys args [:user-id :allowed-actns])
                             stateless-transf/incoming-tx) 
@@ -108,13 +108,13 @@
 ;; TODO should this be async?
 
 
-(defsfn connect-auth-init! [ws-user-args timeouts]
+(defsfn connect-auth-init! [ws-user-args]
   "Run connect- and auth process in sequence, conditionally call init-ws-user!"
   (some-> ws-user-args 
-          (conn-auth/connect-process timeouts) ;; wait for connection and assoc user-socket
+          conn-auth/connect-process ;; wait for connection and assoc user-socket - TODO: measure how long this takes
           (cond= :server :aleph #(assoc % :ch-incoming (-> % :user-socket s/->source))) ;; with aleph the user-socket is also the ch-incoming
           load-user-data
-          (conn-auth/auth-process timeouts) ;; returns augmented init-ws-user-args or nil
+          conn-auth/auth-process ;; returns augmented init-ws-user-args or nil
 
           init-ws-user!))
 

@@ -12,7 +12,6 @@
                                               close! put! take! thread timeout
                                               offer! poll! promise-chan
                                               sliding-buffer]]
-
             [aleph.http :as http]
             [manifold.stream :as s]
             [manifold.deferred :as d]
@@ -25,49 +24,7 @@
 
 
 
-
-;; TODO: 
-;; how to close conn?
-
-;; MANIFOLD
-;; (def s1 (s/stream))
-;; (def in-tx (incoming-tx {:user-id "paul"
-;;                          :allowed-actns [:aa :bb]}))
-;; (def in-st (s/transform in-tx s1))
-;;
-;; (s/consume #(info (vec %)) in-st)
-;;
-;; (s/put! s1 [{:actn :aa :idx 12} 
-;;             {:actn :aa :idx 13} 
-;;             {:idx 14}] )
-;; (s/put! s1 [{:actn :ada :idx 12} 
-;;             {:idx 14}])
-;;
-
-
-
-
-
-;; TEST CODE:
-;; (do 
-;; (require '[dev :refer [system]])
-;; (def ev-queue (-> system :event-queue :events-server))
-;; ;; (def ev-queue [])
-;; ;; (def ws-conns (-> system :ws-conns-main))
-;; (def ws-conns (atom []))
-;; (def user-socket (s/stream))
-;; (fiber (init-ws-user! {:user-socket user-socket :user-id "pete"
-;;                        :ws-conns ws-conns :event-queue ev-queue}))
-;; (def in-ac (:incoming-actor (first @ws-conns)))
-;; true
-;; )
-;;
-;; (! in-ac [:append! [{:eins 11} {:zwei 22}]])
-
-(def time-out 3000)
-
-
-#_(defn make-handler [init-args]
+(defn make-handler [init-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [ws-user-args {:on-open-user-socket (http/websocket-connection request)
@@ -75,7 +32,8 @@
                         :server-snd-fn       s/put! 
                         :server-close-fn     s/close!}]
 
-      (spawn-fiber init-ws-user/connect-auth-init! (merge init-args ws-user-args) time-out))))
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-args ws-user-args))
+      nil)))
 
 
 ;; TEST CODE: manual
@@ -112,7 +70,7 @@
   (start [component]
     (let [init-ws-user-args (merge conf {:ws-conns     ws-conns
                                          :event-queue  event-queue})] 
-      (assoc component :ws-handler nil #_(make-handler init-ws-user-args))))
+      (assoc component :ws-handler (make-handler init-ws-user-args))))
 
   (stop [component] component))
 

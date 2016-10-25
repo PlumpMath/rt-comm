@@ -8,7 +8,7 @@
 
 
 (defn connect! [ws-conns req-client-socket]
-  (info "Add socket to ws-conns" #_connected-clients #_req-client-socket)
+  (info "Add socket to ws-conns" #_req-client-socket)
   (let [send-to-this-client-cb (partial s/put! req-client-socket)] 
     (swap! ws-conns conj {:socket req-client-socket :cb send-to-this-client-cb})))
 

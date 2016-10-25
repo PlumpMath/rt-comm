@@ -23,14 +23,18 @@
   p)
 
 
+
 (defsfn await-deref [d] 
   "Deref the given manifold.deferred (using a callback), merely
   blocking the current fiber, not the current thread."
-  (if (= (type d) manifold.deferred.Deferred) 
+  (condp contains? (type d) 
+    #{manifold.deferred.Deferred manifold.deferred.SuccessDeferred}
     (p/await (fn [d cb]
                (d/on-realized d cb cb))
              d)
     (deref d)))
+;; TODO: write test, add cases for pulsar, clj-promises
+
 
 (defsfn await-<! [ch] 
   "Take from ch (using a callback), merely
@@ -46,7 +50,7 @@
     #{clojure.core.async.impl.channels.ManyToManyChannel}    
     :coreasync
 
-    #{manifold.stream.default.Stream}
+    #{manifold.stream.default.Stream manifold.stream.SplicedStream}
     :manifold
 
     #{co.paralleluniverse.strands.channels.QueueObjectChannel co.paralleluniverse.strands.channels.TransferChannel} 

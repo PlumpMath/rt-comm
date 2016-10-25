@@ -42,7 +42,7 @@
 ;;                           :incoming-actor incoming-actor
 ;;                           :outgoing-actor outgoing-actor})))
 
-#_(defn immut-ws-setup []
+(defn immut-ws-setup []
   "Returns immut-cbs map and a map of related in-channel and promises
   that connect the Immutant API with the app."
 
@@ -77,16 +77,15 @@
 ;;           #_init-ws-user!))
 
 
-(def time-out 3000)
 
 ;; -------------------------------------------------------------------------------
 
-#_(defn make-handler [init-ws-user-args]
+(defn make-handler [init-ws-user-args]
   (fn ws-handler [request]  ;; client requests a ws connection here
 
     (let [[immut-cbs ws-user-args] (immut-ws-setup)]
 
-      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args) time-out) 
+      (spawn-fiber init-ws-user/connect-auth-init! (merge init-ws-user-args ws-user-args)) 
       (async/as-channel request immut-cbs)))) ;; Does not block. Returns ring response. Could use user-socket in response :body 
 
 
@@ -130,7 +129,7 @@
   (start [component]
     (let [init-ws-user-args (merge conf {:ws-conns     ws-conns
                                          :event-queue  event-queue})] 
-      (assoc component :ws-handler nil #_(make-handler init-ws-user-args))))
+      (assoc component :ws-handler (make-handler init-ws-user-args))))
 
   ;; (assoc component :ws-handler nil #_(make-handler init-ws-user-args))
 

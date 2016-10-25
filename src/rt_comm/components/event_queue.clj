@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [promise await])
   (:require
     [com.stuartsierra.component :as component]
-    [taoensso.timbre :refer [debug info error spy] :rename {debug <<<}]
+    [taoensso.timbre :as l :refer [debug info error spy] :rename {debug <<<}]
 
     [rt-comm.utils.utils :as utils :refer [valp fpred recent-items]]
 
@@ -212,28 +212,39 @@
 
 ;; -------------------------------------------------------------------------------
 
+
 (defrecord EventQueue [conf events-server]
   component/Lifecycle
 
   (start [component]
-    (let [event-data    (load-events (:file-path conf))
-          server-actor' (spawn server-actor event-data (:max-size conf))
-          _             (register! :events-server server-actor')
-          _             (start-client-debug :c3)
-          ]  ;; registering is only for debugging!
-      (assoc component :events-server server-actor')))
+    (if events-server 
+      component ;; already started
+      (let [event-data    (load-events (:file-path conf))
+            server-actor' (spawn server-actor event-data (:max-size conf))
+            ;; _             (register! :events-server server-actor')
+            ;; _             (start-client-debug :c3)
+            ]  ;; registering is only for debugging!
+        (assoc component :events-server server-actor'))))
 
   (stop [component]
-    (unregister! events-server)
-    (! events-server :shutdown!)
-    (assoc component :events-server nil))
+    (if events-server
+      (do 
+        (unregister! events-server)
+        (try (! events-server :shutdown!) 
+             (catch Throwable t
+               (l/error t "Error when stopping events-server.")))
+        (assoc component :events-server nil)) 
+      component))) ;; already closed!
 
-  )
 
 ;; -------------------------------------------------------------------------------
 
-#_(defn append! [events]
-  (! ev-server [:append! events]))
+;; TEST CODE:
+;; (require '[dev :refer [system]])
+;; (def ev-queue (-> system :event-queue :events-server))
+;; (def ev-queue (spawn eq/server-actor [] 10))
+;; (! ev-queue [:append! [{:aa 23}]])
+
 
 
 

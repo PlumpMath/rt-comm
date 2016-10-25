@@ -11,8 +11,10 @@
  :event-queue {:max-size 7
                :file-path "app-data/event-queue-data.edn"}
 
- :ws-user {:incm-user {:batch-sample-intv 0
-                       :allowed-actns [:aa :bb :post-msg :set-receiver-chans]}
+ :ws-user {:connect-timeout 100
+           :auth-timeout 3000 
+           :incm-user {:batch-sample-intv 0
+                       :allowed-actns [:aa :bb :post-msg :maintained-tags]}
            :outg-user {}}
 
  :immutant {:port 4040}

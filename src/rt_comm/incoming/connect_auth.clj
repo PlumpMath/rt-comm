@@ -16,7 +16,6 @@
 
 (defn auth-msg [ch timeout] 
   "Return first msg from ch [pulsar, core.async or manifold!] or :timed-out/:conn-error."
-  ;; (info ch timeout)
   (case (au/ch-type ch)
     :pulsar    (-> (rcv ch timeout :ms) ;; wait for first message/auth-message!
                    (valp some? :timed-out)) ;; nil -> :timed-out
@@ -48,20 +47,8 @@
 ;; (deref fu1)
 
 
-;; (defn auth-result [auth-msg user-data]
-;;   "Checks auth-msg + included login, returns [:auth-outcome 'message' user-id]."
-;;   (println "auth-msg:" auth-msg)
-;;   (match auth-msg
-;;          {:cmd [:auth login]} (if (u/contains-el? login user-data) 
-;;                                 [:success "Login success!" (:user-id login)] 
-;;                                 [:failed  "Login failed! Disconnecting."])
-;;
-;;          :timed-out            [:timed-out "Authentification timed out! Disconnecting."] 
-;;          :else                 [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
-
 (defn auth-result [auth-msg user-data]
   "Checks auth-msg + included login, returns [:auth-outcome 'message' user-id]."
-  ;; (println "auth-msg:" auth-msg)
   (match [auth-msg] 
        [{:actn :auth 
          :data login}] (if (u/contains-el? login user-data) 
@@ -69,6 +56,7 @@
                          [:failed  "Login failed! Disconnecting."])
 
        [:timed-out]      [:timed-out "Authentification timed out! Disconnecting."] 
+       [auth-ms]         [:no-auth-cmd (format "Expected auth-command but got: %s. Disconnecting." auth-ms)] 
        :else             [:no-auth-cmd "Expected auth. command not found! Disconnecting."]))
 
 
@@ -110,15 +98,14 @@
 
 (defn close-or-pass! [m]
   (if-not (:auth-success m)
-    (do ((:server-close-fn m) (:user-socket m)) nil)) ;; Return nil on failure
-  m)
+    (do ((:server-close-fn m) (:user-socket m)) nil) ;; Return nil on failure 
+    m))    
 
 
-
-(defsfn auth-process [args timeout]
+(defsfn auth-process [args]
   "Wait for auth cmd, add user-id, send user msg, on failure
   disconnect and return nil."
-  (-> (auth-msg (:ch-incoming args) timeout) ;; pause fiber
+  (-> (auth-msg (:ch-incoming args) (:auth-timeout args)) ;; pause fiber
       (auth-result (:user-data args))
       (->> (assoc args :auth-result)) 
       auth-success-args
@@ -128,13 +115,13 @@
       close-or-pass!))
 
 
-(defsfn connect-process [{:keys [on-open-user-socket] :as m} timeout]
+(defsfn connect-process [{:keys [on-open-user-socket connect-timeout] :as m}]
   "Assoc :user-socket from connection promise [or deferred]
   within timeout or return nil"
   (let [user-socket (-> on-open-user-socket
-                        (au/timeout! timeout nil) ;; starts another fiber that will pause and deliver after timeout
+                        (au/timeout! connect-timeout nil) ;; starts another fiber that will pause and deliver after timeout
                         ;; (d/chain dec #(/ 1 %)) ;; TEST CODE: Raise error
-                        ;; (d/catch (fn [e] (error "Ws connection error:" e) nil)) ;; swallow potential Aleph error, return nil
+                        (d/catch (fn [e] (error "Ws connection error:" e) nil)) ;; swallow potential Aleph error, return nil
                         await-deref)]
     (when user-socket
       (-> (assoc m :user-socket user-socket)))))
