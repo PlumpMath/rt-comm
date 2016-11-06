@@ -1,5 +1,8 @@
 (ns rt-comm.utils.utils
-  (:require [clojure.edn :as edn]
+  (:require [clojure.edn :as edn] 
+            [clojure.pprint :refer [pprint]] 
+            [clojure.string :refer [trimr]]
+            [taoensso.timbre :refer [debug info error spy]]
             ))
 
 
@@ -13,6 +16,15 @@
   (-> path 
       slurp 
       edn/read-string))
+
+
+(defn pprint-s [s]
+  (with-out-str (pprint s)))
+
+;; TEST CODE:
+;; (-> (load-config "dev/resources/config.edn") 
+;;     pprint-s
+;;     info)
 
 
 (defn contains-el? [el coll] 
@@ -35,8 +47,9 @@
   ([pred]     (fn [a] (when (pred a) a)))
   ([pred alt] (fn [a] (if   (pred a) a alt))))
 
-(defn cond= [m t-key t-val f]
+(defn cond= 
   "Conditionally applies f to m if t-key of m = t-val."
+  [m t-key t-val f]
   (if (= (t-key m) t-val)
     (f m)
     m))
@@ -47,16 +60,18 @@
 ;;     )
 
 
-(defn recent-items [cnt vect]
+(defn recent-items 
   "Return cnt recent items from vect. Nil if cnt not pos?"
+  [cnt vect]
   (some->> ((fpred pos?) cnt)
            (- (count vect)) ;; fetch idx
            (max 0)
            (subvec vect)))
 
 
-(defn is-ev-coll? [v]
+(defn is-ev-coll? 
   "Returns true if v is a coll of maps, e.g. the first item is a map, nil otherwise."
+  [v]
   (some-> v (get 0) map?))
 
 
@@ -68,10 +83,11 @@
 ;;                   ;; set new-items col-type as column val may be nil
 ;;                 rows)))
 
-(defn add-to-col-in-table [rows column-key new-items]
+(defn add-to-col-in-table 
   "Adds new-items to :column-key in rows [vec of maps].
   (add-to-col-in-table [{:aa [1]}] :aa [2 3])
   > [{:aa [2 3 1]}]"
+  [rows column-key new-items]
   (if new-items 
     (into [] (map (fn [row] 
                     (update row column-key 

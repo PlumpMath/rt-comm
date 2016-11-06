@@ -13,13 +13,15 @@
 
 
 
-(defn process-msgs [msgs recip-chs]
+(defn process-msgs 
   "Augment and filter msgs."
+  [msgs recip-chs]
   (-> msgs 
       (u/add-to-col-in-table :tags recip-chs)))
 
-(defn commit! [msgs snd-ev-queue]
+(defn commit! 
   "Commit msgs to event-queue."
+  [msgs snd-ev-queue]
   (snd-ev-queue [:append! msgs]))
 
 

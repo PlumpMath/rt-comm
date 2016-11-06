@@ -33,7 +33,7 @@
                         :server-close-fn     s/close!}]
 
       (spawn-fiber init-ws-user/connect-auth-init! (merge init-args ws-user-args))
-      nil)))
+      nil))) ;; 
 
 
 ;; TEST CODE: manual

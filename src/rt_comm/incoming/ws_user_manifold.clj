@@ -15,18 +15,20 @@
             [taoensso.timbre :refer [debug info error spy]]))
 
 
-(defn process-msgs [msgs tags]
+(defn process-msgs 
   "Augment and filter msgs."
+  [msgs tags]
   (-> msgs 
       (u/add-to-col-in-table :tags tags))) ;; add maintained-tags to client set tags
 
-(defn commit! [msgs snd-event-queue]
+(defn commit! 
   "Commit msgs to event-queue."
+  [msgs snd-event-queue]
   (snd-event-queue [:append! msgs]))
 
 
 
-(defn incoming-ws-user-actor [evt-ch snd-ev-queue {:keys [batch-sample-intv]}] 
+(defn incoming-ws-user-actor 
   "Starts process that consumes msgs from evt-ch, applies state based transforms 
   and :append!s msgs to event-queue.
   Features: 
@@ -35,6 +37,7 @@
   - batch/throttle incoming msgs using batch-sample-intv
   Gate into the system: Only concerned with msg-format and performance ops 
   that require state." 
+  [evt-ch snd-ev-queue {:keys [batch-sample-intv]}] 
   (let [ctr-ch (s/stream)] 
     (s/connect evt-ch ctr-ch {:description "evt-ch -> ctr-ch"})  ;; use ctr-ch for alt! receive
 

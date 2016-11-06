@@ -42,10 +42,10 @@
 ;;                           :incoming-actor incoming-actor
 ;;                           :outgoing-actor outgoing-actor})))
 
-(defn immut-ws-setup []
+(defn immut-ws-setup 
   "Returns immut-cbs map and a map of related in-channel and promises
   that connect the Immutant API with the app."
-
+  []
   ;; The following channel and promises will connect the immutant api with the app
   (let [ch-incoming (channel 16 :displace true true) ;; Receives incoming user msgs. Will never block. Should not overflow/drop messages as upstream consumer batches messages. 
         ;; ch-incoming (a/chan (sliding-buffer 16)) 

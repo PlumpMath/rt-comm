@@ -17,24 +17,24 @@
                  [com.taoensso/timbre "4.3.1"]
                  [json-html "0.3.9"]
                  [hiccup "1.0.5"] 
-                 ;; [io.aviso/pretty "0.1.20"] ;; REPL formatting
                  [criterium "0.4.4"]
 
                  [org.immutant/immutant "2.1.3"]
                  [aleph "0.4.1"]
-                 [io.nervous/kvlt "0.1.3"]
+                 [ring/ring-jetty-adapter "1.5.0"]
                  [compojure "1.5.0"]
-                 [ring/ring-defaults "0.2.0"]
-
-                 ;; [ring/ring-jetty-adapter "1.1.0"]
 
                  [cheshire "5.5.0"]
-                 [hiccups "0.3.0"]
-                 ;; [com.andrewmcveigh/cljs-time "0.3.14"]
-                 ;; [ch.qos.logback/logback-classic "1.1.3"]
+                 [ring-middleware-format "0.7.0"]
 
-                 ;; [org.clojure/tools.namespace "0.2.11"]
-                 ;; [org.clojure/tools.nrepl "0.2.11"]
+                 [metosin/ring-http-response "0.8.0"]
+                 [ring/ring-defaults "0.2.0"]
+
+                 [hiccups "0.3.0"]
+
+                 ;; Client libs
+                 [io.nervous/kvlt "0.1.3"]
+                 [clj-http  "2.0.0"]
 
                  [com.datomic/datomic-free "0.9.5327" :exclusions [joda-time]]
                  [datascript "0.13.3"]

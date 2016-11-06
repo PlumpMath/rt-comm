@@ -23,10 +23,19 @@
             [taoensso.timbre :refer [debug info error spy]]))
 
 
+;; TODO:
+;; rename: init-ws-user! -> init-user!
+;; rename ws-conns -> connected-users
+;; for ws conn and http conn, resume/reuse a connected user actor
+;; .. or call init-user!
+;; dispose a user after timeout in-activity
 
+;; Multiple clients per user!
+;; what happens when a connecting user id is already in connected-user 
+;; -> have array of user-sockets
 
 (defn init-ws-user! [{:keys [user-socket ch-incoming event-queue] :as args}]
-  (info "args:" args)
+  ;; (info "args:" args)
 
   (let [in-tx           (-> (select-keys args [:user-id :allowed-actns])
                             stateless-transf/incoming-tx) 
@@ -37,12 +46,12 @@
                           :manifold  (s/transform in-tx ch-incoming))
 
         incoming-actor (case (au/ch-type ch-incoming)
-                          :pulsar    (ws-user-pulsar/incoming-ws-user-actor 
-                                       incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])) 
-                          :coreasync (ws-user-coreasync/incoming-ws-user-actor 
-                                       incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])) 
-                          :manifold  (ws-user-manifold/incoming-ws-user-actor 
-                                       incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])))
+                         :pulsar    (ws-user-pulsar/incoming-ws-user-actor 
+                                      incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])) 
+                         :coreasync (ws-user-coreasync/incoming-ws-user-actor 
+                                      incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])) 
+                         :manifold  (ws-user-manifold/incoming-ws-user-actor 
+                                      incom-tx-stream #(! event-queue %) (select-keys args [:batch-sample-intv])))
 
         outgoing-actor nil]
 
@@ -105,8 +114,11 @@
 (defn load-user-data [m]
   (->> (u/load-config "dev/resources/user-data.edn")
        (assoc m :user-data)))
-;; TODO should this be async?
+;; TODO make this async?
 
+;; move init-user! out of connect-auth..
+;; hava a separate fn auth for http?
+;; spec connect auth
 
 (defsfn connect-auth-init! [ws-user-args]
   "Run connect- and auth process in sequence, conditionally call init-ws-user!"

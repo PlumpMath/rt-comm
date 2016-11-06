@@ -11,9 +11,11 @@
     ;; Webserver
     [rt-comm.components.immutant    :refer [->Immutant]]
     [rt-comm.components.aleph       :refer [->Aleph]]
+    [rt-comm.components.jetty       :refer [->Jetty]]
 
     ;; Http Handler/ Routes
-    [rt-comm.components.handler     :refer [->Handler]]
+    [rt-comm.components.handler       :refer [->Handler]]
+    [rt-comm.components.handler-notes :refer [->Handler-notes]]
 
     ;; Websocket handler: Simple example
     [rt-comm.components.ws-handler-immutant-simple :refer [->Ws-Handler-Immutant-simple]]
@@ -36,10 +38,12 @@
     ;; Webserver
     :immutant   (->Immutant (:immutant conf) nil nil)  ;; -> conf, handler, + server
     :aleph      (->Aleph    (:aleph    conf) nil nil)  ;; -> conf, handler, + server
+    :jetty      (->Jetty    (:jetty    conf) nil nil)  ;; -> conf, handler, + server
 
     ;; Http Handler/ Routes
     :handler-immutant (->Handler nil nil nil nil nil) ; datomic, dynamo, ws-handler-simple, ws-handler-main, + handler
     :handler-aleph    (->Handler nil nil nil nil nil) ; datomic, dynamo, ws-handler-simple, ws-handler-main, + handler
+    :handler-jetty    (->Handler-notes nil) ; + handler
 
     ;; Websocket handler: Simple example
     :ws-handler-immutant-simple (->Ws-Handler-Immutant-simple nil nil) ;; clients, + handler
@@ -72,18 +76,17 @@
    :handler-immutant  {:datomic           :datomic
                        :dynamo            :dynamo
                        :ws-handler-simple :ws-handler-immutant-simple
-                       :ws-handler-main   :ws-handler-immutant-main
-                       }
+                       :ws-handler-main   :ws-handler-immutant-main}
 
    :handler-aleph     {:datomic           :datomic
                        :dynamo            :dynamo
                        :ws-handler-simple :ws-handler-aleph-simple
-                       :ws-handler-main   :ws-handler-aleph-main
-                       }
+                       :ws-handler-main   :ws-handler-aleph-main}
 
    ;; Server
    :immutant    {:handler :handler-immutant}
    :aleph       {:handler :handler-aleph}
+   :jetty       {:handler :handler-jetty}
    })
 
 

@@ -14,8 +14,9 @@
             [rt-comm.utils.utils :as u :refer [valp cond=]]))
 
 
-(defn auth-msg [ch timeout] 
-  "Return first msg from ch [pulsar, core.async or manifold!] or :timed-out/:conn-error."
+(defn auth-msg 
+  "Return first msg from ch [pulsar, core.async or manifold!] or :timed-out/:conn-error." 
+  [ch timeout]
   (case (au/ch-type ch)
     :pulsar    (-> (rcv ch timeout :ms) ;; wait for first message/auth-message!
                    (valp some? :timed-out)) ;; nil -> :timed-out
@@ -47,8 +48,9 @@
 ;; (deref fu1)
 
 
-(defn auth-result [auth-msg user-data]
+(defn auth-result 
   "Checks auth-msg + included login, returns [:auth-outcome 'message' user-id]."
+  [auth-msg user-data]
   (match [auth-msg] 
        [{:actn :auth 
          :data login}] (if (u/contains-el? login user-data) 
@@ -69,8 +71,9 @@
 ;; (auth-result :timed-out user-data)
 
 
-(defn auth-success-args [m]
+(defn auth-success-args 
   "Derive :auth-success, :user-msg and :user-id props from :auth-result."
+  [m]
   (match [(:auth-result m)] ;; Handle outcome of auth process
          [[:success user-msg user-id]] (assoc m :auth-success true  :user-msg user-msg :user-id  user-id)
          [[_        user-msg]]         (assoc m :auth-success false :user-msg user-msg)))
@@ -102,9 +105,10 @@
     m))    
 
 
-(defsfn auth-process [args]
+(defsfn auth-process 
   "Wait for auth cmd, add user-id, send user msg, on failure
   disconnect and return nil."
+  [args]
   (-> (auth-msg (:ch-incoming args) (:auth-timeout args)) ;; pause fiber
       (auth-result (:user-data args))
       (->> (assoc args :auth-result)) 
@@ -115,9 +119,10 @@
       close-or-pass!))
 
 
-(defsfn connect-process [{:keys [on-open-user-socket connect-timeout] :as m}]
+(defsfn connect-process 
   "Assoc :user-socket from connection promise [or deferred]
   within timeout or return nil"
+  [{:keys [on-open-user-socket connect-timeout] :as m}]
   (let [user-socket (-> on-open-user-socket
                         (au/timeout! connect-timeout nil) ;; starts another fiber that will pause and deliver after timeout
                         ;; (d/chain dec #(/ 1 %)) ;; TEST CODE: Raise error

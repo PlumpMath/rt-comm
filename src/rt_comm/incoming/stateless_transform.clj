@@ -6,14 +6,16 @@
     [taoensso.timbre :refer [debug info error spy]]))
 
 
-(defn map-assoc-user-id [user-id]
+(defn map-assoc-user-id 
   "Returned fn takes a collection of maps and assocs ':user-id user-id' to each element."
+  [user-id]
   (->> #(assoc % :user-id user-id)
        (partial mapv)))
 
 
-(defn filter-to-allowed-actns [allowed-actns]
+(defn filter-to-allowed-actns 
   "Returned fn filters a coll of maps [coll of evts] based on each element's :actn val being included in allowed-actns"
+  [allowed-actns]
   (->> (comp (set allowed-actns) :actn) ;; predicate tests a map's :actn val to be one of allowed-actns. 
        (partial filterv))) 
 
@@ -24,8 +26,9 @@
 ;;     ((map-assoc-user-id "pete")))
 
 
-(defn incoming-tx [{:keys [user-id allowed-actns]}] 
-  "Creates incoming transform transducer, deleting non-allowed actns and associng user-id."
+(defn incoming-tx 
+  "Creates incoming transform transducer, deleting non-allowed actns and associng user-id." 
+  [{:keys [user-id allowed-actns]}]
   (comp 
     (map (filter-to-allowed-actns allowed-actns)) ;; delete events with non-allowed actns in ev-coll msgs
     (filter seq)                                  ;; delete empty ev-coll msgs

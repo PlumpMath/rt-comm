@@ -17,6 +17,7 @@
                        :allowed-actns [:aa :bb :post-msg :maintained-tags]}
            :outg-user {}}
 
+ :jetty    {:port 3030}
  :immutant {:port 4040}
  :aleph    {:port 5050}
 

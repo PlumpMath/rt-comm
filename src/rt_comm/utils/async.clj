@@ -15,18 +15,20 @@
             [taoensso.timbre :refer [debug info error spy]])) 
 
 
-(defsfn timeout! [p timeout v]
+(defsfn timeout! 
   "Suspend fiber for timeout ms, then deliver
   v to promise/deferred p."
+  [p timeout v]
   (do (p/sleep timeout) 
       (deliver p v))
   p)
 
 
 
-(defsfn await-deref [d] 
+(defsfn await-deref 
   "Deref the given manifold.deferred (using a callback), merely
-  blocking the current fiber, not the current thread."
+  blocking the current fiber, not the current thread." 
+  [d]
   (condp contains? (type d) 
     #{manifold.deferred.Deferred manifold.deferred.SuccessDeferred}
     (p/await (fn [d cb]
@@ -36,16 +38,18 @@
 ;; TODO: write test, add cases for pulsar, clj-promises
 
 
-(defsfn await-<! [ch] 
+(defsfn await-<! 
   "Take from ch (using a callback), merely
-  blocking the current fiber, not the current thread."
+  blocking the current fiber, not the current thread." 
+  [ch]
   (p/await (fn [ch cb]
              (a/take! ch cb))
            ch))
 
 
-(defn ch-type [ch]
+(defn ch-type 
   "Returns :coreasync, :manifold or :pulsar based on ch type"
+  [ch]
   (condp contains? (type ch)
     #{clojure.core.async.impl.channels.ManyToManyChannel}    
     :coreasync
@@ -65,13 +69,15 @@
 ;; (ch-type ch1)
 
 
-(defn transform-ch [ch tx]
+(defn transform-ch 
   "Apply tx to ch."
+  [ch tx]
   (->> (chan 1 tx) ;; Tx only has effect if buffer > 0
        (a/pipe ch)))
 
-(defn transform-pch [ch tx]
+(defn transform-pch 
   "Returns pulsar channel with tx, reading form pulsar channel."
+  [ch tx]
   (->> (pa/chan 1 tx) ;; Tx only has effect if buffer > 0
        (pa/pipe ch)))
 
@@ -88,9 +94,10 @@
 
 
 
-(defn batch-rcv-ev-colls [ch]
+(defn batch-rcv-ev-colls 
   "Poll! available event collections from ch and batch
   them into one event collection. Returns nil if no events were available. Non-blocking."
+  [ch]
   (loop [v []
             x (a/poll! ch)]
            (if-not x
@@ -105,8 +112,9 @@
 ;; (>!! c1 [5 6 7])
 
 
-(defn rcv-rest [first-msg ch]
+(defn rcv-rest 
   "Rcv available msgs and append to first-msg vec. Never blocks."
+  [first-msg ch]
   (->> (batch-rcv-ev-colls ch) ;; rcv other msgs or nil
        (into first-msg))) ;; into one vec of maps 
 
@@ -118,9 +126,10 @@
 ;; (poll! ch)
 
 
-(defn pause-filter-keys [ch & msg-keys] 
+(defn pause-filter-keys 
   "Returns a chan that will receive the first msg with
-  a matching key. Will consume all msgs from ch until a match is found."
+  a matching key. Will consume all msgs from ch until a match is found." 
+  [ch & msg-keys]
   (let [valid-k? (set msg-keys)] 
     (go-loop [] 
              (let [msg (<!! ch)]
